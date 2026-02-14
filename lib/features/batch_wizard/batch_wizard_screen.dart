@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/batch_config.dart';
 import '../../data/models/cost_estimate.dart';
@@ -90,7 +91,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
-            const SnackBar(content: Text('Projekt nicht gefunden.')),
+            SnackBar(content: Text(S.of(context)!.projectsNotFound)),
           );
         context.go('/projects');
         return;
@@ -151,8 +152,8 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Batch Wizard konnte nicht geladen werden.'),
+          SnackBar(
+            content: Text(S.of(context)!.batchWizardNotLoaded),
           ),
         );
     } finally {
@@ -282,7 +283,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
   Future<void> _parseItems() async {
     final inputPath = _inputPath;
     if (inputPath == null || inputPath.isEmpty) {
-      _showError('Bitte zuerst eine Eingabequelle waehlen.');
+      _showError(S.of(context)!.batchWizardSelectSource);
       return;
     }
 
@@ -335,7 +336,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
         });
       }
     } catch (_) {
-      _showError('Items konnten nicht geladen werden.');
+      _showError(S.of(context)!.batchWizardLoadItems);
     } finally {
       if (mounted) {
         setState(() {
@@ -400,27 +401,27 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
   bool _validateStep(int step) {
     if (step == 0) {
       if (_items.isEmpty) {
-        _showError('Bitte Items laden, bevor du fortfaehrst.');
+        _showError(S.of(context)!.batchWizardLoadItems);
         return false;
       }
     }
 
     if (step == 1) {
       if (_selectedPrompts.isEmpty) {
-        _showError('Bitte mindestens einen Prompt auswaehlen.');
+        _showError(S.of(context)!.batchWizardSelectPrompt);
         return false;
       }
     }
 
     if (step == 3) {
       if (_selectedModel == null) {
-        _showError('Bitte ein Model auswaehlen.');
+        _showError(S.of(context)!.batchWizardSelectModel);
         return false;
       }
     }
 
     if (step == 4 && _requiresPrivacyConfirmation && !_privacyConfirmed) {
-      _showError('Bitte die Datenschutz-Bestaetigung aktivieren.');
+      _showError(S.of(context)!.batchWizardConfirmPrivacy);
       return false;
     }
 
@@ -433,7 +434,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
     final inputPath = _inputPath;
 
     if (project == null || model == null || inputPath == null) {
-      _showError('Batch kann nicht gestartet werden.');
+      _showError(S.of(context)!.batchWizardStartError);
       return;
     }
 
@@ -494,7 +495,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
 
       context.go('/projects/${project.id}/batch/$batchId');
     } catch (_) {
-      _showError('Batch konnte nicht gespeichert werden.');
+      _showError(S.of(context)!.batchWizardSaveError);
     } finally {
       if (mounted) {
         setState(() {
@@ -515,6 +516,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     final project = _project;
 
     if (_isBusy && project == null) {
@@ -522,8 +524,8 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
     }
 
     if (project == null) {
-      return const Scaffold(
-        body: Center(child: Text('Projekt nicht geladen.')),
+      return Scaffold(
+        body: Center(child: Text(t.batchWizardProjectNotLoaded)),
       );
     }
 
@@ -559,13 +561,13 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
             children: [
               FilledButton(
                 onPressed: _isBusy ? null : details.onStepContinue,
-                child: Text(isLast ? 'Batch starten' : 'Weiter'),
+                child: Text(isLast ? t.batchWizardStartBatch : t.actionNext),
               ),
               if (_step > 0) ...[
                 const SizedBox(width: 8),
                 TextButton(
                   onPressed: _isBusy ? null : details.onStepCancel,
-                  child: const Text('Zurueck'),
+                  child: Text(t.actionBack),
                 ),
               ],
             ],
@@ -573,7 +575,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
         },
         steps: [
           Step(
-            title: const Text('Items laden'),
+            title: Text(t.batchWizardItemsTitle),
             isActive: _step >= 0,
             content: StepItems(
               inputType: _inputType,
@@ -609,7 +611,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('Prompts waehlen'),
+            title: Text(t.batchWizardPromptsTitle),
             isActive: _step >= 1,
             content: StepPrompts(
               availablePrompts: availablePrompts,
@@ -656,7 +658,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('Chunks'),
+            title: Text(t.batchWizardChunksTitle),
             isActive: _step >= 2,
             content: StepChunks(
               chunkSize: _chunkSize,
@@ -676,7 +678,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('Model konfigurieren'),
+            title: Text(t.batchWizardModelTitle),
             isActive: _step >= 3,
             content: StepModel(
               models: _models,
@@ -705,7 +707,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('Bestaetigen + starten'),
+            title: Text(t.batchWizardConfirmTitle),
             isActive: _step >= 4,
             content: StepConfirm(
               itemCount: _items.length,

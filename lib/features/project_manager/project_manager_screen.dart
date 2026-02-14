@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
@@ -10,6 +11,7 @@ import '../../core/constants/app_constants.dart';
 import '../../data/database/app_database.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/project_provider.dart';
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/project_file_service.dart';
 import 'widgets/new_project_dialog.dart';
 import 'widgets/open_project_dialog.dart';
@@ -78,7 +80,7 @@ class _ProjectManagerScreenState extends ConsumerState<ProjectManagerScreen> {
       }
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Projekt konnte nicht erstellt werden.')));
+        ..showSnackBar(SnackBar(content: Text(S.of(context)!.projectsCreateError)));
     } finally {
       if (mounted) {
         setState(() {
@@ -112,7 +114,7 @@ class _ProjectManagerScreenState extends ConsumerState<ProjectManagerScreen> {
         }
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('Kein gueltiges XtractAid-Projekt')));
+          ..showSnackBar(SnackBar(content: Text(S.of(context)!.projectsInvalidProject)));
         return;
       }
 
@@ -158,7 +160,7 @@ class _ProjectManagerScreenState extends ConsumerState<ProjectManagerScreen> {
       }
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Projekt konnte nicht geoeffnet werden.')));
+        ..showSnackBar(SnackBar(content: Text(S.of(context)!.projectsOpenError)));
     } finally {
       if (mounted) {
         setState(() {
@@ -182,29 +184,41 @@ class _ProjectManagerScreenState extends ConsumerState<ProjectManagerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     final projectsAsync = ref.watch(projectListProvider);
 
-    return Scaffold(
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () {
+          if (!_isBusy) _createProject();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyO, control: true): () {
+          if (!_isBusy) _openProjectFolder();
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
       appBar: AppBar(
-        title: const Text('Projects'),
+        title: Text(t.projectsTitle),
         actions: [
           TextButton.icon(
             onPressed: _isBusy ? null : _createProject,
             icon: const Icon(Icons.add),
-            label: const Text('Neues Projekt'),
+            label: Text(t.projectsNew),
           ),
           const SizedBox(width: 8),
           TextButton.icon(
             onPressed: _isBusy ? null : _openProjectFolder,
             icon: const Icon(Icons.folder_open),
-            label: const Text('Projekt oeffnen'),
+            label: Text(t.projectsOpen),
           ),
           const SizedBox(width: 12),
         ],
       ),
       body: projectsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Fehler: $error')),
+        error: (error, _) => Center(child: Text(t.errorGeneric(error.toString()))),
         data: (projects) {
           final sorted = [...projects]
             ..sort((a, b) {
@@ -215,13 +229,13 @@ class _ProjectManagerScreenState extends ConsumerState<ProjectManagerScreen> {
           final recent = sorted.take(AppConstants.recentProjectsLimit).toList();
 
           if (recent.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.folder_copy_outlined, size: 56),
-                  SizedBox(height: 12),
-                  Text('Erstellen Sie Ihr erstes Projekt'),
+                  const Icon(Icons.folder_copy_outlined, size: 56),
+                  const SizedBox(height: 12),
+                  Text(t.projectsEmpty),
                 ],
               ),
             );
@@ -243,6 +257,8 @@ class _ProjectManagerScreenState extends ConsumerState<ProjectManagerScreen> {
           );
         },
       ),
+    ),
+    ),
     );
   }
 }

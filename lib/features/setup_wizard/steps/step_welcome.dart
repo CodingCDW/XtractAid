@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
+
 class StepWelcome extends StatelessWidget {
   const StepWelcome({
     super.key,
@@ -13,6 +15,7 @@ class StepWelcome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = S.of(context)!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -26,19 +29,19 @@ class StepWelcome extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'XtractAid analysiert Textdaten aus Dateien in Batches mit LLM-Modellen und erstellt strukturierte Ergebnisse.',
+          t.setupDescription,
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 24),
         DropdownButtonFormField<String>(
           initialValue: language,
-          decoration: const InputDecoration(
-            labelText: 'Sprache',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: t.labelLanguage,
+            border: const OutlineInputBorder(),
           ),
-          items: const [
-            DropdownMenuItem(value: 'de', child: Text('Deutsch (DE)')),
-            DropdownMenuItem(value: 'en', child: Text('English (EN)')),
+          items: [
+            DropdownMenuItem(value: 'de', child: Text(t.setupGermanLabel)),
+            DropdownMenuItem(value: 'en', child: Text(t.setupEnglishLabel)),
           ],
           onChanged: onLanguageChanged,
         ),

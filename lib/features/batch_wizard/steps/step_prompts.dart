@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/prompt_selector.dart';
 import '../../../shared/widgets/prompt_viewer.dart';
 
@@ -30,6 +31,7 @@ class StepPrompts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -54,9 +56,9 @@ class StepPrompts extends StatelessWidget {
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           initialValue: previewPromptName,
-          decoration: const InputDecoration(
-            labelText: 'Prompt-Vorschau',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: t.promptPreview,
+            border: const OutlineInputBorder(),
           ),
           items: {...selectedPrompts, ...availablePrompts}
               .map((p) => DropdownMenuItem(value: p, child: Text(p)))

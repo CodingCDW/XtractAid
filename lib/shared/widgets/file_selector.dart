@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
+
 class FileSelector extends StatelessWidget {
   const FileSelector({
     super.key,
     required this.label,
     required this.path,
     required this.onPick,
-    this.pickButtonLabel = 'Waehlen',
+    this.pickButtonLabel,
     this.onLoad,
-    this.loadButtonLabel = 'Laden',
+    this.loadButtonLabel,
     this.isLoading = false,
   });
 
   final String label;
   final String? path;
   final VoidCallback onPick;
-  final String pickButtonLabel;
+  final String? pickButtonLabel;
   final VoidCallback? onLoad;
-  final String loadButtonLabel;
+  final String? loadButtonLabel;
   final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -31,12 +34,12 @@ class FileSelector extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                path ?? 'Keine Quelle gewaehlt',
+                path ?? t.noSourceSelected,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 8),
-            OutlinedButton(onPressed: onPick, child: Text(pickButtonLabel)),
+            OutlinedButton(onPressed: onPick, child: Text(pickButtonLabel ?? t.actionSelect)),
             if (onLoad != null) ...[
               const SizedBox(width: 8),
               FilledButton(
@@ -47,7 +50,7 @@ class FileSelector extends StatelessWidget {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(loadButtonLabel),
+                    : Text(loadButtonLabel ?? t.actionLoad),
               ),
             ],
           ],

@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../data/models/batch_config.dart';
 import '../../data/models/batch_stats.dart';
 import '../../data/models/item.dart';
@@ -50,6 +50,8 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
+
     ref.listen<BatchExecutionState>(batchExecutionProvider, (previous, next) {
       _persistExecutionStatus(next);
       _maybeGenerateReports(previous, next);
@@ -66,7 +68,19 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
         ? (progress!.totalChunks * progress.totalPrompts * progress.totalRepetitions)
         : (stats?.totalApiCalls ?? 0);
 
-    return Scaffold(
+    final canStart = !_isPreparing &&
+        execState.status != BatchExecutionStatus.running &&
+        execState.status != BatchExecutionStatus.starting;
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.f5): () {
+          if (canStart) _startExecution();
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
       appBar: AppBar(
         title: Text(_batchName == null ? 'Batch Execution' : 'Batch: $_batchName'),
       ),
@@ -83,7 +97,7 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
                     spacing: 8,
                     runSpacing: 6,
                     children: [
-                      const Text('Status:'),
+                      Text(t.labelStatus),
                       Chip(
                         label: Text(statusLabel),
                         backgroundColor: statusColor,
@@ -93,13 +107,9 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
                   ),
                 ),
                 FilledButton.icon(
-                  onPressed: (_isPreparing ||
-                          execState.status == BatchExecutionStatus.running ||
-                          execState.status == BatchExecutionStatus.starting)
-                      ? null
-                      : _startExecution,
+                  onPressed: canStart ? _startExecution : null,
                   icon: const Icon(Icons.play_arrow),
-                  label: const Text('Start'),
+                  label: Text(t.actionStart),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
@@ -107,7 +117,7 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
                       ? () => ref.read(batchExecutionProvider.notifier).pause()
                       : null,
                   icon: const Icon(Icons.pause),
-                  label: const Text('Pause'),
+                  label: Text(t.actionPause),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
@@ -115,7 +125,7 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
                       ? () => ref.read(batchExecutionProvider.notifier).resume()
                       : null,
                   icon: const Icon(Icons.play_circle),
-                  label: const Text('Resume'),
+                  label: Text(t.actionResume),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
@@ -125,7 +135,7 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
                       ? () => ref.read(batchExecutionProvider.notifier).stop()
                       : null,
                   icon: const Icon(Icons.stop),
-                  label: const Text('Stop'),
+                  label: Text(t.actionStop),
                 ),
               ],
             ),
@@ -161,21 +171,21 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Ausfuehrung',
+                                t.execTitle,
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                               const SizedBox(height: 8),
-                              Text('Repetition: ${progress?.currentRepetition ?? 0}/${progress?.totalRepetitions ?? 0}'),
-                              Text('Prompt: ${progress?.currentPromptIndex ?? 0}/${progress?.totalPrompts ?? 0}'),
-                              Text('Chunk: ${progress?.currentChunkIndex ?? 0}/${progress?.totalChunks ?? 0}'),
+                              Text('${t.execRepetition} ${progress?.currentRepetition ?? 0}/${progress?.totalRepetitions ?? 0}'),
+                              Text('${t.execPrompt} ${progress?.currentPromptIndex ?? 0}/${progress?.totalPrompts ?? 0}'),
+                              Text('${t.execChunk} ${progress?.currentChunkIndex ?? 0}/${progress?.totalChunks ?? 0}'),
                               Text('Current Prompt Name: ${progress?.currentPromptName ?? '-'}'),
                               Text('Current Model: ${progress?.currentModelId ?? '-'}'),
                               const Divider(height: 20),
-                              Text('Completed Calls: ${stats?.completedApiCalls ?? 0}'),
-                              Text('Failed Calls: ${stats?.failedApiCalls ?? 0}'),
-                              Text('Input Tokens: ${stats?.totalInputTokens ?? 0}'),
-                              Text('Output Tokens: ${stats?.totalOutputTokens ?? 0}'),
-                              Text('Results: ${execState.results.length}'),
+                              Text('${t.execCompletedCalls} ${stats?.completedApiCalls ?? 0}'),
+                              Text('${t.execFailedCalls} ${stats?.failedApiCalls ?? 0}'),
+                              Text('${t.execInputTokens} ${stats?.totalInputTokens ?? 0}'),
+                              Text('${t.execOutputTokens} ${stats?.totalOutputTokens ?? 0}'),
+                              Text('${t.execResults} ${execState.results.length}'),
                             ],
                           ),
                         ),
@@ -197,25 +207,28 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
           ],
         ),
       ),
+    ),
+    ),
     );
   }
 
   Future<void> _startExecution() async {
+    final t = S.of(context)!;
     setState(() {
       _isPreparing = true;
-      _infoText = 'Batch-Konfiguration wird geladen...';
+      _infoText = t.execLoadingConfig;
     });
 
     try {
       final db = ref.read(databaseProvider);
       final batch = await db.batchesDao.getById(widget.batchId);
       if (batch == null) {
-        _showError('Batch nicht gefunden.');
+        _showError(t.execBatchNotFound);
         return;
       }
       final project = await db.projectsDao.getById(widget.projectId);
       if (project == null) {
-        _showError('Projekt nicht gefunden.');
+        _showError(t.execProjectNotFound);
         return;
       }
 
@@ -226,7 +239,7 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
 
       final configMap = jsonDecode(batch.configJson);
       if (configMap is! Map<String, dynamic>) {
-        _showError('Ungueltige Batch-Konfiguration.');
+        _showError(t.execInvalidConfig);
         return;
       }
       final config = BatchConfig.fromJson(configMap);
@@ -235,12 +248,12 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
 
       final items = await _loadItems(config);
       if (items.isEmpty) {
-        _showError('Keine Items fuer die Ausfuehrung gefunden.');
+        _showError(t.execNoItems);
         return;
       }
 
       setState(() {
-        _infoText = 'Prompts werden geladen...';
+        _infoText = t.execLoadingPrompts;
       });
 
       final allPrompts = await _promptService.loadPrompts(
@@ -255,7 +268,7 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
       }
 
       if (selectedPrompts.isEmpty) {
-        _showError('Keine Prompt-Dateien aus der Batch-Konfiguration gefunden.');
+        _showError(t.execNoPrompts);
         return;
       }
       _activePromptContents = selectedPrompts;
@@ -289,10 +302,10 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
       );
 
       setState(() {
-        _infoText = 'Batch gestartet.';
+        _infoText = t.execBatchStarted;
       });
     } catch (e) {
-      _showError('Start fehlgeschlagen: $e');
+      _showError(t.execStartFailed('$e'));
     } finally {
       if (mounted) {
         setState(() {
@@ -448,15 +461,17 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
       if (!mounted) {
         return;
       }
+      final t = S.of(context)!;
       setState(() {
         _infoText =
-            'Reports erstellt: ${reports.excelPath}, ${reports.markdownPath}, ${reports.htmlPath}';
+            t.execReportsCreated('${reports.excelPath}, ${reports.markdownPath}, ${reports.htmlPath}');
       });
     } catch (e) {
       if (!mounted) {
         return;
       }
-      _showError('Report-Generierung fehlgeschlagen: $e');
+      final t = S.of(context)!;
+      _showError(t.execReportsFailed('$e'));
     }
   }
 }

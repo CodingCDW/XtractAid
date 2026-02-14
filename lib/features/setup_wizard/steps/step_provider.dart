@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../data/models/provider_config.dart';
 
 class StepProvider extends StatelessWidget {
@@ -20,6 +21,8 @@ class StepProvider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
+
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -33,16 +36,16 @@ class StepProvider extends StatelessWidget {
       children: [
         DropdownButtonFormField<String>(
           initialValue: selectedProviderId,
-          decoration: const InputDecoration(
-            labelText: 'Provider',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: t.labelProvider,
+            border: const OutlineInputBorder(),
           ),
           items: providers
               .map(
                 (provider) => DropdownMenuItem<String>(
                   value: provider.id,
                   child: Text(
-                    '${provider.name} (${provider.isLocal ? 'lokal' : 'cloud'})',
+                    '${provider.name} (${provider.isLocal ? t.labelLocal : t.labelCloud})',
                   ),
                 ),
               )
@@ -50,9 +53,7 @@ class StepProvider extends StatelessWidget {
           onChanged: onChanged,
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Cloud-Provider benoetigen einen API-Key. Lokale Provider (Ollama, LM Studio) laufen auf Ihrem Rechner.',
-        ),
+        Text(t.setupProviderHint),
       ],
     );
   }

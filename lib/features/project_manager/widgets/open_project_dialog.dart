@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
+
 class OpenProjectDialogResult {
   const OpenProjectDialogResult({required this.directory});
 
@@ -34,10 +36,11 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
   }
 
   void _submit() {
+    final t = S.of(context)!;
     final dir = _selectedDirectory;
     if (dir == null || dir.isEmpty) {
       setState(() {
-        _errorText = 'Bitte Projektordner waehlen.';
+        _errorText = t.projectOpenFolderHint;
       });
       return;
     }
@@ -46,8 +49,9 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return AlertDialog(
-      title: const Text('Projekt oeffnen'),
+      title: Text(t.projectOpenTitle),
       content: SizedBox(
         width: 520,
         child: Column(
@@ -58,14 +62,14 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
               children: [
                 Expanded(
                   child: Text(
-                    _selectedDirectory ?? 'Kein Ordner ausgewaehlt',
+                    _selectedDirectory ?? t.projectNoFolderSelected,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton(
                   onPressed: _pickDirectory,
-                  child: const Text('Ordner waehlen'),
+                  child: Text(t.actionChooseFolder),
                 ),
               ],
             ),
@@ -82,11 +86,11 @@ class _OpenProjectDialogState extends State<OpenProjectDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Abbrechen'),
+          child: Text(t.actionCancel),
         ),
         FilledButton(
           onPressed: _submit,
-          child: const Text('Oeffnen'),
+          child: Text(t.actionOpen),
         ),
       ],
     );

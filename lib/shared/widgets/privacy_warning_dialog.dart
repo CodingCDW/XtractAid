@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
+
 class PrivacyWarningResult {
   const PrivacyWarningResult({
     required this.accepted,
@@ -29,21 +31,22 @@ class _PrivacyWarningDialogState extends State<PrivacyWarningDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return AlertDialog(
-      title: const Text('Datenschutz-Hinweis'),
+      title: Text(t.privacyTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Sie senden Daten an ${widget.provider} (${widget.region}). DSGVO und interne Richtlinien beachten.',
+            t.privacyMessage(widget.provider, widget.region),
           ),
           const SizedBox(height: 12),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _doNotShowAgain,
             onChanged: (value) => setState(() => _doNotShowAgain = value ?? false),
-            title: const Text('Nicht mehr anzeigen'),
+            title: Text(t.privacyDontShowAgain),
           ),
         ],
       ),
@@ -52,13 +55,13 @@ class _PrivacyWarningDialogState extends State<PrivacyWarningDialog> {
           onPressed: () => Navigator.of(context).pop(
             PrivacyWarningResult(accepted: false, doNotShowAgain: _doNotShowAgain),
           ),
-          child: const Text('Abbrechen'),
+          child: Text(t.actionCancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(
             PrivacyWarningResult(accepted: true, doNotShowAgain: _doNotShowAgain),
           ),
-          child: const Text('Verstanden'),
+          child: Text(t.privacyUnderstood),
         ),
       ],
     );

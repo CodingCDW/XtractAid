@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
+
 class StepBasicSettings extends StatelessWidget {
   const StepBasicSettings({
     super.key,
@@ -12,6 +14,7 @@ class StepBasicSettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -19,13 +22,11 @@ class StepBasicSettings extends StatelessWidget {
           value: strictLocalMode,
           onChanged: onChanged,
           contentPadding: EdgeInsets.zero,
-          title: const Text('Strict Local Mode'),
-          subtitle: const Text('Nur lokale Provider erlauben (Ollama, LM Studio).'),
+          title: Text(t.setupStrictLocalMode),
+          subtitle: Text(t.setupStrictLocalModeDesc),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Diese Einstellungen koennen spaeter in den Einstellungen geaendert werden.',
-        ),
+        Text(t.setupSettingsChangeLater),
       ],
     );
   }

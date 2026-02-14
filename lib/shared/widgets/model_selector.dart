@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../data/models/model_info.dart';
 
 class ModelSelector extends StatelessWidget {
@@ -16,11 +17,12 @@ class ModelSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return DropdownButtonFormField<String>(
       initialValue: selectedModelId,
-      decoration: const InputDecoration(
-        labelText: 'Model',
-        border: OutlineInputBorder(),
+      decoration: InputDecoration(
+        labelText: t.labelModel,
+        border: const OutlineInputBorder(),
       ),
       items: models
           .map(

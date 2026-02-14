@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:logging/logging.dart';
 
 import '../core/constants/app_constants.dart';
 import '../data/database/app_database.dart';
@@ -12,6 +13,7 @@ import '../data/models/provider_config.dart';
 ///
 /// Priority: Bundled < Remote < User Overrides
 class ModelRegistryService {
+  static final _log = Logger('ModelRegistryService');
   final AppDatabase _db;
   final Dio _dio;
 
@@ -40,7 +42,8 @@ class ModelRegistryService {
         options: Options(receiveTimeout: const Duration(seconds: 10)),
       );
       return response.data as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e) {
+      _log.warning('Failed to fetch remote registry: $e');
       return null;
     }
   }
@@ -74,9 +77,16 @@ class ModelRegistryService {
       final remoteVersion = remote['version'] as String? ?? '';
       final localVersion = registry['version'] as String? ?? '';
       if (remoteVersion.compareTo(localVersion) > 0) {
-        (registry['providers'] as Map)
-            .addAll(remote['providers'] as Map? ?? {});
-        (registry['models'] as Map).addAll(remote['models'] as Map? ?? {});
+        final localProviders = registry['providers'];
+        final remoteProviders = remote['providers'];
+        if (localProviders is Map && remoteProviders is Map) {
+          localProviders.addAll(remoteProviders);
+        }
+        final localModels = registry['models'];
+        final remoteModels = remote['models'];
+        if (localModels is Map && remoteModels is Map) {
+          localModels.addAll(remoteModels);
+        }
         registry['version'] = remote['version'];
         registry['updated_at'] = remote['updated_at'];
       }

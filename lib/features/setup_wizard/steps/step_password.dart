@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
+
 class StepPassword extends StatelessWidget {
   const StepPassword({
     super.key,
@@ -18,6 +20,7 @@ class StepPassword extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     final color = passwordStrength < 0.34
         ? Colors.red
         : passwordStrength < 0.67
@@ -32,7 +35,7 @@ class StepPassword extends StatelessWidget {
           obscureText: true,
           onChanged: (_) => onChanged(),
           decoration: InputDecoration(
-            labelText: 'Passwort',
+            labelText: t.labelPassword,
             border: const OutlineInputBorder(),
             errorText: errorText,
           ),
@@ -42,13 +45,13 @@ class StepPassword extends StatelessWidget {
           controller: confirmController,
           obscureText: true,
           onChanged: (_) => onChanged(),
-          decoration: const InputDecoration(
-            labelText: 'Passwort bestaetigen',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: t.labelConfirmPassword,
+            border: const OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 16),
-        Text('Passwortstaerke'),
+        Text(t.passwordStrength),
         const SizedBox(height: 8),
         LinearProgressIndicator(
           value: passwordStrength,
@@ -59,10 +62,10 @@ class StepPassword extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           passwordStrength < 0.34
-              ? 'Schwach (unter 8 Zeichen)'
+              ? t.passwordWeak
               : passwordStrength < 0.67
-                  ? 'Mittel (mindestens 8 Zeichen)'
-                  : 'Stark (12+ Zeichen)',
+                  ? t.passwordMedium
+                  : t.passwordStrong,
         ),
       ],
     );

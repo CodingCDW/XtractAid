@@ -9,7 +9,7 @@
 | Phase 2: Core Services | ERLEDIGT | 8 Services implementiert. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
 | Phase 3: Frontend Core | ERLEDIGT | 3.1-3.5 umgesetzt (Setup, Auth, Projects, Batch Wizard, Shared Widgets) |
 | Phase 4: Integration | ERLEDIGT | 4.1-4.6 vollstaendig implementiert (Worker, Execution Screen, Reports, Model Manager). Code-Generierung (freezed/drift) laeuft. |
-| Phase 5: Polish | NAECHSTER SCHRITT | Lokalisierung, Fehlerbehandlung, Testing, Distribution + Dokument-Pipeline-Hardening (DOCX/PDF/Token/Lizenz) |
+| Phase 5: Polish | IN ARBEIT | 5.1 Lokalisierung ERLEDIGT, 5.2 Settings ERLEDIGT, 5.3 Fehlerbehandlung+UX ERLEDIGT, 5.4 Unit Tests (4 Services) ERLEDIGT. Offen: Widget/Integration Tests, Distribution, Pipeline Hardening |
 
 ---
 
@@ -627,35 +627,66 @@ Jedes Model hat einen Detail-Dialog mit allen Feldern (Pricing, Parameters, Capa
 
 ---
 
-## Phase 5: Polish -- NAECHSTER SCHRITT
+## Phase 5: Polish -- IN ARBEIT
 
-### 5.1 Lokalisierung (DE/EN)
-- ARB-Dateien unter `lib/core/l10n/`: `app_de.arb`, `app_en.arb`
-- `flutter_localizations` + `intl` (bereits in pubspec.yaml)
-- Alle UI-Texte extrahieren und durch `AppLocalizations.of(context)!.xyz` ersetzen
-- Sprachauswahl: Aus `settings['language']` laden, in Setup Wizard + Settings aenderbar
+### 5.1 Lokalisierung (DE/EN) -- ERLEDIGT
+- ARB-Dateien unter `lib/core/l10n/`: `app_de.arb` (Template), `app_en.arb` (200+ Keys)
+- `l10n.yaml` Konfiguration, Output-Klasse `S` in `lib/core/l10n/generated/`
+- `localeProvider` + `localeLoaderProvider` in `providers/settings_provider.dart`
+- `app.dart` mit `locale`, `localizationsDelegates`, `supportedLocales` verdrahtet
+- 27 UI-Dateien lokalisiert: Shell, Settings, Auth, Setup Wizard (6 Steps), Projects (5 Dateien), Batch Wizard (6 Dateien), Batch Execution, Model Manager, 6 Shared Widgets
+- `dart analyze`: 0 Errors/Warnings, `flutter test`: 61/61 bestanden
 
-### 5.2 Settings Screen
-**Zu ersetzen:** `lib/features/settings/settings_screen.dart` (aktuell Platzhalter)
-- Abschnitt "Allgemein": Sprache, Theme (optional)
-- Abschnitt "Sicherheit": Passwort aendern, Provider-Keys verwalten
-- Abschnitt "Datenschutz": Strict Local Mode Toggle
-- Abschnitt "Erweitert": Checkpoint-Intervall, Token-Schaetzung
+### 5.2 Settings Screen -- ERLEDIGT
+- `lib/features/settings/settings_screen.dart` vollstaendig implementiert (war Platzhalter)
+- 5 Abschnitte: Allgemein (Sprache), Sicherheit (Passwort aendern + Provider verwalten), Datenschutz (Strict Local Mode), Erweitert (Checkpoint-Intervall Slider), Reset
+- Passwort-Aenderung mit Verifikation und automatischer Re-Verschluesselung aller API-Keys
+- Provider-Verwaltungsdialog mit Enable/Disable Toggle und Delete
+- App-Reset mit Bestaetigungsdialog
 
-### 5.3 Fehlerbehandlung + UX
-- Globaler Error Handler in `main.dart` (`FlutterError.onError` + `PlatformDispatcher.instance.onError`)
-- Graceful Shutdown: `WidgetsBindingObserver.didChangeAppLifecycleState` -> bei Pause/Detach: laufende Batches checkpointen
-- Tastaturkuerzel: `RawKeyboardListener` oder `Shortcuts` Widget (Ctrl+N=Neues Projekt, Ctrl+O=Oeffnen, F5=Batch starten, Escape=Zurueck)
+### 5.3 Fehlerbehandlung + UX -- ERLEDIGT
+- Globaler Error Handler in `main.dart`: `FlutterError.onError` + `PlatformDispatcher.instance.onError` mit `logging`-basiertem Output
+- Graceful Shutdown: `_AppLifecycleWrapper` mit `WidgetsBindingObserver` -- bei `paused`/`detached` werden laufende Batches automatisch pausiert (Checkpoint)
+- `ProviderContainer` + `UncontrolledProviderScope` fuer Lifecycle-Zugriff ausserhalb des Widget-Trees
+- Tastaturkuerzel via `CallbackShortcuts`: Escape=Zurueck (`app_shell.dart`), Ctrl+N=Neues Projekt, Ctrl+O=Oeffnen (`project_manager_screen.dart`), F5=Batch starten (`batch_execution_screen.dart`)
 
-### 5.4 Testing
-- **Unit Tests** (`test/services/`): EncryptionService (encrypt/decrypt roundtrip), JsonParserService (alle 6 Strategien), TokenEstimationService (Berechnung), PromptService (Platzhalter-Injection), FileParserService (mit Test-Dateien)
-- **Widget Tests** (`test/widgets/`): Shared Widgets rendern korrekt, Wizard-Steps Navigation
-- **Integration Tests** (`integration_test/`): Setup Wizard komplett durchlaufen (mit Mock-DB), Batch Wizard konfigurieren (mit Mock-LLM)
+### 5.4 Testing -- TEILWEISE ERLEDIGT
+- **Unit Tests** (`test/services/`): 4 Services mit 61 Tests implementiert:
+  - `encryption_service_test.dart` (13 Tests): Salt, Hash, Verify, Unlock/Lock, Encrypt/Decrypt Roundtrip
+  - `json_parser_service_test.dart` (9 Tests): Alle 5 Strategien, Fehlerfall, leerer String
+  - `prompt_service_test.dart` (12 Tests): Platzhalter, Injection, Validierung, Chunks
+  - `token_estimation_service_test.dart` (10 Tests): Tokenizer, Batch-Kosten, Call-Kosten
+- **Null-Safety-Fix** in `ModelRegistryService`: Sichere `is Map`-Checks statt unsicherer Casts, Logging statt stiller `catch (_)`
+- Offen: Widget Tests (`test/widgets/`), Integration Tests (`integration_test/`)
 
 ### 5.5 Windows-Distribution
 - `flutter build windows --release`
 - MSIX-Paket (`msix` Flutter-Package) oder Inno Setup
 - App-Icon in `windows/runner/resources/app_icon.ico`
+- Build-Voraussetzungen fuer OCR-native Plugins (Rust/LLVM/CMake/MSVC) ueber `scripts/setup_windows_build.ps1` vorab pruefen.
+
+### 5.5.1 Build-Toolchain fuer OCR (NEU, P0 fuer `pdf_ocr`)
+- Rust Toolchain auf Windows bereitstellen: `rustup`, `rustc`, `cargo`.
+- Erzwingen: `rustup default stable-x86_64-pc-windows-msvc` (kein GNU-Target).
+- LLVM/Clang installieren und `LIBCLANG_PATH` setzen (typisch: `C:\Program Files\LLVM\bin`).
+- VS Build Tools mit C++ Workload + Windows SDK + CMake-Tools sicherstellen.
+- Lokale Verifikation: `powershell -ExecutionPolicy Bypass -File scripts/setup_windows_build.ps1 -InstallHints`.
+
+### 5.5.2 CI Build-Haertung (NEU)
+- In GitHub Actions vor `flutter build windows`:
+  - Rust Toolchain installieren/aktivieren (`stable-x86_64-pc-windows-msvc`).
+  - LLVM installieren und `LIBCLANG_PATH` in `GITHUB_ENV` setzen.
+- Cargo-Caching aktivieren:
+  - `~/.cargo/registry`
+  - `~/.cargo/git`
+  - Cache-Key mit `pubspec.lock` hashen.
+- Erwartung: Erster Lauf langsam (Cache Miss), Folge-Laeufe deutlich schneller (Cache Hit).
+
+### 5.5.3 Release-on-Tag fuer QA (NEU)
+- Trigger auf Tags `v*` aktivieren.
+- `build/windows/x64/runner/Release/*` zu `XtractAid-Windows.zip` packen.
+- Artifact in GitHub Release hochladen (`softprops/action-gh-release`).
+- QA-Flow: ZIP herunterladen, entpacken, `xtractaid.exe` direkt starten (portable Bundle).
 
 ### 5.6 Dokument-Pipeline Hardening (NEU, Prioritaet P0)
 
@@ -672,7 +703,8 @@ Ziel: Die Risiken DOCX-Qualitaet, komplexe PDF-Extraktion, ungenaue Token-Schaet
 - Digitale Textextraktion auf `pdfrx` (PDFium via FFI, MIT) migrieren.
 - Qualitaets-Scoring einfuehren (Textlaenge, druckbare Zeichenquote, Wiederholungsmuster, Nulltext-Erkennung).
 - OCR-Fallback nur bei schlechter Textqualitaet aktivieren, nicht pauschal.
-- OCR mit `pdf_ocr` (MIT/Apache) hinter Feature-Flag (`enableOcrFallback`) integrieren.
+- OCR mit `pdf_ocr` (MIT/Apache) hinter Feature-Flag (`enableOcrFallback`) integrieren, aber nur wenn Toolchain-Gate gruen ist.
+- Bei fehlender Toolchain: OCR-Hook aktiv lassen, `pdf_ocr` nicht im Standard-Build erzwingen.
 - Buildgroesse steuern: OCR als optionaler Add-on-Installer/Build-Flavor, Standard-Release ohne OCR-Ballast.
 - Akzeptanzkriterium: Komplexe PDF-Suite (mind. 20 Dateien) mit signifikant weniger Leer-/Garbage-Extraktionen gegenueber aktuellem Stand.
 
@@ -696,6 +728,38 @@ Ziel: Die Risiken DOCX-Qualitaet, komplexe PDF-Extraktion, ungenaue Token-Schaet
 - Smoke-Test vor Release: DOCX, Digital-PDF, Scan-PDF (mit OCR-Flag), XLSX-Export, Batch-Ende-zu-Ende.
 - Ergebnisprotokoll je Release: Parsing-Qualitaet, Token-Abweichung, Artefaktgroesse, Lizenzreport.
 - CI-Lizenz-/Dependency-Guard aktiv: `scripts/check_dependency_allowlist.dart` + `.github/workflows/ci.yml`.
+- Toolchain-Gate aktiv: `scripts/setup_windows_build.ps1` muss auf OCR-Build-Runnern erfolgreich sein.
+
+### 5.8 Junior Guide: Problem -> Loesung (NEU)
+
+#### Problem 1: `flutter build windows` bricht mit `MSB8066` bei `pdf_ocr_cargokit` ab
+- Ursache: Rust-Toolchain fehlt oder ist nicht im PATH (haeufig auch fehlendes LLVM/libclang).
+- Loesung:
+  1. `rustup`, `rustc`, `cargo` installieren.
+  2. `rustup default stable-x86_64-pc-windows-msvc` setzen.
+  3. LLVM installieren und `LIBCLANG_PATH` konfigurieren.
+  4. Mit `scripts/setup_windows_build.ps1` pruefen.
+
+#### Problem 2: OCR-Build ist lokal/CI instabil
+- Ursache: Native OCR-Abhaengigkeiten sind schwergewichtig und umgebungssensitiv.
+- Loesung:
+  1. OCR nur ueber Feature-Flag/Fallback einschalten.
+  2. Standard-Build ohne harte OCR-Abhaengigkeit stabil halten.
+  3. OCR erst aktivieren, wenn Toolchain-Gate gruen ist.
+
+#### Problem 3: CI-Builds dauern mit Rust zu lange
+- Ursache: Rust Crates werden ohne Cache bei jedem Lauf neu geladen.
+- Loesung:
+  1. Cargo-Registry/Git in CI cachen.
+  2. Cache-Key an `pubspec.lock` koppeln.
+  3. Ersten Lauf als Cache-Miss akzeptieren, Folge-Laeufe nutzen Cache-Hits.
+
+#### Problem 4: QA bekommt kein lauffaehiges Windows-Paket
+- Ursache: Flutter Windows erzeugt einen Ordnerverbund, keine Einzel-EXE.
+- Loesung:
+  1. Release-Ordner zippen.
+  2. Upload als GitHub Release auf Tag `v*`.
+  3. QA testet portable ZIP (entpacken, EXE starten).
 
 ---
 
@@ -832,10 +896,12 @@ test/widget_test.dart                                     (Minimal-Test -> Phase
 | Risiko | Mitigation | Status |
 |--------|-----------|--------|
 | DOCX-Parsing-Qualitaet | Erweiterter Pure-Dart-OOXML-Parser + Fallback-Logik + Testkorpus | In Arbeit (Phase 5.6.1) |
-| PDF-Textextraktion bei komplexen PDFs | `pdfrx` fuer Digital-PDF + qualitaetsgesteuerter OCR-Fallback (Feature-Flag + OCR-Service-Hook) | In Arbeit (Phase 5.6.2) |
+| PDF-Textextraktion bei komplexen PDFs | `pdfrx` fuer Digital-PDF + qualitaetsgesteuerter OCR-Fallback (Feature-Flag + OCR-Service-Hook), `pdf_ocr` nur mit gruenem Toolchain-Gate | In Arbeit (Phase 5.6.2) |
 | Isolate-Kommunikation Komplexitaet | Klares sealed-class Protokoll mit WorkerMessageCodec | Erledigt (Phase 4) |
 | Token-Schaetzung ungenau (chars/4) | Umstieg auf `tiktoken_tokenizer_gpt4o_o1` + Modell-Mapping + Kalibrierungstests | Geplant (Phase 5.6.3) |
 | Syncfusion Lizenz | Vollstaendige Migration auf MIT/Apache-Stack (`excel`, `pdfrx`, optional `pdf_ocr`) + CI-Lizenz-Guard | In Arbeit (Phase 5.6.4) |
+| OCR Build-Umgebung fehlt (Rust/LLVM/CMake) | `scripts/setup_windows_build.ps1` lokal + Toolchain-Setup in CI + Runner-Gate | In Arbeit (Phase 5.5.1/5.5.2) |
+| Lange CI-Buildzeiten durch Rust | Cargo-Cache (`~/.cargo/registry`, `~/.cargo/git`) mit `pubspec.lock`-basiertem Key | Geplant (Phase 5.5.2) |
 | freezed Code-Gen nicht aktiv | ~~Datenklassen funktionieren manuell~~ Code-Gen laeuft, `.freezed.dart`/`.g.dart` vorhanden | Erledigt |
 
 ---
@@ -851,4 +917,4 @@ Nach jeder Phase:
 | Phase 2 | `dart analyze`: 0 Fehler, `flutter build windows`: OK |
 | Phase 3 | Setup Wizard komplett durchlaufbar, Projekt anlegen/oeffnen, Batch Wizard konfigurierbar, Passwort-Screen funktioniert |
 | Phase 4 | Kompletter Batch-Durchlauf (10 Items, 1 Prompt, Ollama lokal), Excel-Export pruefbar, Live-Log, Pause/Resume funktioniert |
-| Phase 5 | DE/EN Sprachwechsel, Unit Tests gruen, Windows-Installer laeuft auf sauberem System, DOCX/PDF/Token-Hardening nachweisbar, keine Syncfusion-Abhaengigkeit in `pubspec.lock` |
+| Phase 5 | DE/EN Sprachwechsel, Unit Tests gruen, Windows-Installer laeuft auf sauberem System, DOCX/PDF/Token-Hardening nachweisbar, keine Syncfusion-Abhaengigkeit in `pubspec.lock`, OCR-Toolchain-Gate dokumentiert/verifiziert, CI Cargo-Cache aktiv, Tag-Release-Flow fuer QA laeuft |

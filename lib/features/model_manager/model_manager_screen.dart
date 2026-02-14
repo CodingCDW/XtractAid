@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show Value;
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/model_info.dart';
 import '../../providers/database_provider.dart';
@@ -26,16 +27,17 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Models'),
-          bottom: const TabBar(
+          title: Text(t.modelsTitle),
+          bottom: TabBar(
             tabs: [
-              Tab(text: 'Registry Models'),
-              Tab(text: 'Custom Models'),
-              Tab(text: 'Discovered Models'),
+              Tab(text: t.modelsRegistry),
+              Tab(text: t.modelsCustom),
+              Tab(text: t.modelsDiscovered),
             ],
           ),
         ),
@@ -51,18 +53,19 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
   }
 
   Widget _buildRegistryTab() {
+    final t = S.of(context)!;
     final registryAsync = ref.watch(mergedRegistryProvider);
     final registryService = ref.watch(modelRegistryProvider);
 
     return registryAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Registry-Fehler: $error')),
+      error: (error, _) => Center(child: Text(t.modelsRegistryError('$error'))),
       data: (_) {
         final grouped = registryService.getModelsByProvider();
         final providerKeys = grouped.keys.toList()..sort();
 
         if (providerKeys.isEmpty) {
-          return const Center(child: Text('Keine Registry-Models gefunden.'));
+          return Center(child: Text(t.modelsNoRegistry));
         }
 
         return ListView.builder(
@@ -76,7 +79,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
             return Card(
               child: ExpansionTile(
                 title: Text(provider.toUpperCase()),
-                subtitle: Text('${modelIds.length} Modelle'),
+                subtitle: Text(t.modelsCountLabel(modelIds.length)),
                 children: modelIds.map((modelId) {
                   final info = registryService.getModelInfo(modelId);
                   if (info == null) {
@@ -106,6 +109,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
   }
 
   Widget _buildCustomTab() {
+    final t = S.of(context)!;
     final db = ref.watch(databaseProvider);
     return StreamBuilder(
       stream: db.modelsDao.watchAllUserOverrides(),
@@ -116,7 +120,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
 
         final rows = snapshot.data ?? const [];
         if (rows.isEmpty) {
-          return const Center(child: Text('Keine Custom Model Overrides vorhanden.'));
+          return Center(child: Text(t.modelsNoCustom));
         }
 
         return ListView.builder(
@@ -153,6 +157,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
   }
 
   Widget _buildDiscoveryTab() {
+    final t = S.of(context)!;
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -169,7 +174,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.search),
-                label: const Text('Provider abfragen'),
+                label: Text(t.modelsQueryProviders),
               ),
             ],
           ),
@@ -182,7 +187,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: _discovered.isEmpty
-                ? const Center(child: Text('Noch keine Discovery-Daten.'))
+                ? Center(child: Text(t.modelsNoDiscovery))
                 : ListView(
                     children: _discovered.entries.map((entry) {
                       final provider = entry.key;
@@ -190,7 +195,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
                       return Card(
                         child: ExpansionTile(
                           title: Text(provider.toUpperCase()),
-                          subtitle: Text('${models.length} Modelle'),
+                          subtitle: Text(t.modelsCountLabel(models.length)),
                           children: models
                               .map((m) => ListTile(title: Text(m)))
                               .toList(),
@@ -225,6 +230,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
   }
 
   Future<void> _showModelDetailDialog(ModelInfo info) async {
+    final t = S.of(context)!;
     await showDialog<void>(
       context: context,
       builder: (context) {
@@ -236,19 +242,19 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ID: ${info.id}'),
-                  Text('Provider: ${info.provider}'),
-                  Text('Status: ${info.status}'),
+                  Text('${t.modelsIdLabel} ${info.id}'),
+                  Text('${t.modelsProviderLabel} ${info.provider}'),
+                  Text('${t.modelsStatusLabel} ${info.status}'),
                   const SizedBox(height: 8),
-                  Text('Description: ${info.description}'),
+                  Text('${t.modelsDescriptionLabel} ${info.description}'),
                   const SizedBox(height: 8),
-                  Text('Context Window: ${info.contextWindow}'),
-                  Text('Max Output Tokens: ${info.maxOutputTokens}'),
+                  Text('${t.modelsContextWindow} ${info.contextWindow}'),
+                  Text('${t.modelsMaxOutputTokens} ${info.maxOutputTokens}'),
                   Text(
                     'Pricing (USD/M in,out): ${info.pricing.inputPerMillion}, ${info.pricing.outputPerMillion}',
                   ),
                   const Divider(height: 20),
-                  const Text('Capabilities'),
+                  Text(t.modelsCapabilities),
                   Text(
                     'chat=${info.capabilities.chat}, vision=${info.capabilities.vision}, '
                     'functionCalling=${info.capabilities.functionCalling}, jsonMode=${info.capabilities.jsonMode}, '
@@ -256,7 +262,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
                     'extendedThinking=${info.capabilities.extendedThinking}',
                   ),
                   const Divider(height: 20),
-                  const Text('Parameters'),
+                  Text(t.modelsParameters),
                   ...info.parameters.entries.map(
                     (entry) => Padding(
                       padding: const EdgeInsets.only(bottom: 6),
@@ -274,7 +280,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Schliessen'),
+              child: Text(t.actionClose),
             ),
           ],
         );
@@ -283,6 +289,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
   }
 
   Future<void> _showEditOverrideDialog(String modelId, String currentJson) async {
+    final t = S.of(context)!;
     final controller = TextEditingController(text: currentJson);
     String? errorText;
 
@@ -292,7 +299,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
-              title: Text('Override bearbeiten: $modelId'),
+              title: Text('${t.modelsEditOverride} $modelId'),
               content: SizedBox(
                 width: 700,
                 child: Column(
@@ -314,7 +321,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Abbrechen'),
+                  child: Text(t.actionCancel),
                 ),
                 FilledButton(
                   onPressed: () {
@@ -330,7 +337,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
                       });
                     }
                   },
-                  child: const Text('Speichern'),
+                  child: Text(t.actionSave),
                 ),
               ],
             );
@@ -356,7 +363,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Override gespeichert.')));
+        ..showSnackBar(SnackBar(content: Text(t.modelsOverrideSaved)));
     }
   }
 
@@ -364,9 +371,10 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     final db = ref.read(databaseProvider);
     await db.modelsDao.deleteOverride(modelId);
     if (mounted) {
+      final t = S.of(context)!;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Override geloescht.')));
+        ..showSnackBar(SnackBar(content: Text(t.modelsOverrideDeleted)));
     }
   }
 

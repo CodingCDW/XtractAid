@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../data/models/cost_estimate.dart';
 import '../../../shared/widgets/cost_estimate_card.dart';
 
@@ -33,16 +34,17 @@ class StepConfirm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Items: $itemCount'),
-        Text('Quelle: ${inputPath ?? '-'}'),
-        Text('Prompts: ${selectedPrompts.isEmpty ? '-' : selectedPrompts.join(', ')}'),
-        Text('Chunk-Groesse: $chunkSize'),
-        Text('Wiederholungen: $repetitions'),
-        Text('Gesamt API-Calls: $totalCalls'),
-        Text('Model: $modelLabel'),
+        Text('${t.confirmItems} $itemCount'),
+        Text('${t.confirmSource} ${inputPath ?? '-'}'),
+        Text('${t.confirmPrompts} ${selectedPrompts.isEmpty ? '-' : selectedPrompts.join(', ')}'),
+        Text('${t.confirmChunkSize} $chunkSize'),
+        Text('${t.confirmRepetitions} $repetitions'),
+        Text('${t.confirmTotalCalls} $totalCalls'),
+        Text('${t.confirmModel} $modelLabel'),
         const SizedBox(height: 12),
         CostEstimateCard(estimate: costEstimate),
         if (requirePrivacyConfirmation)
@@ -50,9 +52,7 @@ class StepConfirm extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             value: privacyConfirmed,
             onChanged: onPrivacyChanged,
-            title: const Text(
-              'Ich bestaetige, dass das Senden dieser Daten an den Cloud-Provider mit meinen Datenschutzanforderungen vereinbar ist.',
-            ),
+            title: Text(t.confirmPrivacyCheckbox),
           ),
       ],
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../data/models/log_entry.dart';
 
 class LogViewer extends StatefulWidget {
@@ -19,6 +20,7 @@ class _LogViewerState extends State<LogViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     final visible = _filter == null
         ? widget.entries
         : widget.entries.where((e) => e.level == _filter).toList();
@@ -27,12 +29,12 @@ class _LogViewerState extends State<LogViewer> {
       children: [
         Row(
           children: [
-            const Text('Level:'),
+            Text(t.logLevelLabel),
             const SizedBox(width: 8),
             DropdownButton<LogLevel?>(
               value: _filter,
-              items: const [
-                DropdownMenuItem<LogLevel?>(value: null, child: Text('Alle')),
+              items: [
+                DropdownMenuItem<LogLevel?>(value: null, child: Text(t.logLevelAll)),
                 DropdownMenuItem<LogLevel?>(value: LogLevel.info, child: Text('INFO')),
                 DropdownMenuItem<LogLevel?>(value: LogLevel.warn, child: Text('WARN')),
                 DropdownMenuItem<LogLevel?>(value: LogLevel.error, child: Text('ERROR')),

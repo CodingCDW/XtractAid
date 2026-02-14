@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../data/models/item.dart';
 import '../../../shared/widgets/file_selector.dart';
 
@@ -39,6 +40,7 @@ class StepItems extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     final preview = parsedItems.take(10).toList();
 
     return Column(
@@ -49,12 +51,12 @@ class StepItems extends StatelessWidget {
           runSpacing: 8,
           children: [
             ChoiceChip(
-              label: const Text('Excel/CSV'),
+              label: Text(t.itemsExcelCsv),
               selected: inputType == 'excel',
               onSelected: (_) => onInputTypeChanged('excel'),
             ),
             ChoiceChip(
-              label: const Text('Dokumenten-Ordner'),
+              label: Text(t.itemsDocFolder),
               selected: inputType == 'folder',
               onSelected: (_) => onInputTypeChanged('folder'),
             ),
@@ -62,12 +64,12 @@ class StepItems extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         FileSelector(
-          label: inputType == 'excel' ? 'Dateiquelle' : 'Ordnerquelle',
+          label: inputType == 'excel' ? t.itemsFileSource : t.itemsFolderSource,
           path: inputPath,
           onPick: inputType == 'excel' ? onPickFile : onPickFolder,
-          pickButtonLabel: inputType == 'excel' ? 'Datei waehlen' : 'Ordner waehlen',
+          pickButtonLabel: inputType == 'excel' ? t.actionChooseFile : t.actionChooseFolder,
           onLoad: onParse,
-          loadButtonLabel: 'Laden',
+          loadButtonLabel: t.actionLoad,
           isLoading: isParsing,
         ),
         if (inputType == 'excel') ...[
@@ -77,9 +79,9 @@ class StepItems extends StatelessWidget {
               Expanded(
                 child: TextFormField(
                   initialValue: idColumn,
-                  decoration: const InputDecoration(
-                    labelText: 'ID-Spalte',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: t.itemsIdColumn,
+                    border: const OutlineInputBorder(),
                   ),
                   onChanged: onIdColumnChanged,
                 ),
@@ -88,9 +90,9 @@ class StepItems extends StatelessWidget {
               Expanded(
                 child: TextFormField(
                   initialValue: itemColumn,
-                  decoration: const InputDecoration(
-                    labelText: 'Item-Spalte',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: t.itemsItemColumn,
+                    border: const OutlineInputBorder(),
                   ),
                   onChanged: onItemColumnChanged,
                 ),
@@ -103,7 +105,7 @@ class StepItems extends StatelessWidget {
           Text(progressText!),
         ],
         const SizedBox(height: 12),
-        Text('Zusammenfassung: ${parsedItems.length} Items, ${warnings.length} Warnungen'),
+        Text('${t.itemsSummary} ${parsedItems.length} Items, ${warnings.length} Warnungen'),
         if (warnings.isNotEmpty) ...[
           const SizedBox(height: 8),
           Container(
@@ -126,9 +128,9 @@ class StepItems extends StatelessWidget {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('ID')),
-                  DataColumn(label: Text('Text (Vorschau)')),
+                columns: [
+                  const DataColumn(label: Text('ID')),
+                  DataColumn(label: Text(t.itemsPreviewText)),
                 ],
                 rows: preview
                     .map(

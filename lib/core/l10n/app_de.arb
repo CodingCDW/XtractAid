@@ -1,0 +1,332 @@
+{
+  "@@locale": "de",
+
+  "appTitle": "XtractAid",
+
+  "navProjects": "Projekte",
+  "navModels": "Modelle",
+  "navSettings": "Einstellungen",
+
+  "actionBack": "Zurueck",
+  "actionNext": "Weiter",
+  "actionCancel": "Abbrechen",
+  "actionClose": "Schliessen",
+  "actionSave": "Speichern",
+  "actionDelete": "Loeschen",
+  "actionOpen": "Oeffnen",
+  "actionCreate": "Erstellen",
+  "actionChange": "Aendern",
+  "actionDone": "Fertig",
+  "actionStart": "Start",
+  "actionPause": "Pause",
+  "actionResume": "Fortsetzen",
+  "actionStop": "Stop",
+  "actionChooseFolder": "Ordner waehlen",
+  "actionChooseFile": "Datei waehlen",
+  "actionLoad": "Laden",
+  "actionSelect": "Waehlen",
+  "actionUnlock": "Entsperren",
+  "actionReset": "Zuruecksetzen",
+  "actionTestConnection": "Verbindung testen",
+
+  "labelLanguage": "Sprache",
+  "labelGerman": "Deutsch",
+  "labelEnglish": "English",
+  "labelPassword": "Passwort",
+  "labelConfirmPassword": "Passwort bestaetigen",
+  "labelCurrentPassword": "Aktuelles Passwort",
+  "labelNewPassword": "Neues Passwort",
+  "labelConfirmNewPassword": "Neues Passwort bestaetigen",
+  "labelMasterPassword": "Master-Passwort",
+  "labelApiKey": "API-Key",
+  "labelProvider": "Provider",
+  "labelModel": "Model",
+  "labelProjectName": "Projektname",
+  "labelStatus": "Status:",
+  "labelLocal": "lokal",
+  "labelCloud": "cloud",
+
+  "setupTitle": "Ersteinrichtung",
+  "setupStepWelcome": "Willkommen",
+  "setupStepPassword": "Master-Passwort",
+  "setupStepProvider": "Provider waehlen",
+  "setupStepApiKey": "API-Key und Test",
+  "setupStepBasicSettings": "Grundeinstellungen",
+  "setupStepFinish": "Fertig",
+  "setupStartApp": "XtractAid starten",
+  "setupDescription": "XtractAid analysiert Textdaten aus Dateien in Batches mit LLM-Modellen und erstellt strukturierte Ergebnisse.",
+  "setupGermanLabel": "Deutsch (DE)",
+  "setupEnglishLabel": "English (EN)",
+  "setupProviderHint": "Cloud-Provider benoetigen einen API-Key. Lokale Provider (Ollama, LM Studio) laufen auf Ihrem Rechner.",
+  "setupLocalApiKeyHint": "Lokaler Provider: API-Key wird nicht benoetigt. Bitte nur die Verbindung testen.",
+  "setupConnectionSuccess": "Verbindung erfolgreich.",
+  "setupConnectionFailed": "Verbindung fehlgeschlagen.",
+  "setupStrictLocalMode": "Strict Local Mode",
+  "setupStrictLocalModeDesc": "Nur lokale Provider erlauben (Ollama, LM Studio).",
+  "setupSettingsChangeLater": "Diese Einstellungen koennen spaeter in den Einstellungen geaendert werden.",
+  "setupSummaryTitle": "Setup-Zusammenfassung",
+  "setupSummaryConnection": "Verbindung",
+  "setupSummaryPasswordSet": "Gesetzt",
+  "setupSummaryPasswordNotSet": "Nicht gesetzt",
+  "setupSummaryConnectionOk": "OK",
+  "setupSummaryConnectionFail": "Nicht getestet/fehlgeschlagen",
+  "setupNoProviderData": "Keine Providerdaten gefunden.",
+  "setupProviderLoadError": "Provider konnten nicht geladen werden.",
+  "setupSelectProvider": "Bitte einen Provider auswaehlen.",
+  "setupLanguageSaveError": "Sprache konnte nicht gespeichert werden.",
+  "setupMinPasswordLength": "Mindestens 8 Zeichen erforderlich.",
+  "setupPasswordMismatch": "Passwoerter stimmen nicht ueberein.",
+  "setupPasswordSaveError": "Passwort konnte nicht gespeichert werden.",
+  "setupNoProviderSelected": "Kein Provider ausgewaehlt.",
+  "setupEnterApiKey": "Bitte API-Key eingeben.",
+  "setupTestConnectionFirst": "Bitte zuerst eine erfolgreiche Verbindung pruefen.",
+  "setupProviderSaveError": "Provider konnte nicht gespeichert werden.",
+  "setupSettingsSaveError": "Grundeinstellungen konnten nicht gespeichert werden.",
+  "setupCompleteError": "Setup konnte nicht abgeschlossen werden.",
+
+  "passwordStrength": "Passwortstaerke",
+  "passwordWeak": "Schwach (unter 8 Zeichen)",
+  "passwordMedium": "Mittel (mindestens 8 Zeichen)",
+  "passwordStrong": "Stark (12+ Zeichen)",
+
+  "authEnterPassword": "Bitte Passwort eingeben.",
+  "authSetupIncomplete": "Setup unvollstaendig. Bitte neu einrichten.",
+  "authWrongPassword": "Falsches Passwort",
+  "authUnlockFailed": "Entsperren fehlgeschlagen.",
+  "authForgotPassword": "Passwort vergessen?",
+  "authResetWarning": "Alle API-Keys werden geloescht. Fortfahren?",
+  "authResetFailed": "Reset fehlgeschlagen.",
+
+  "projectsTitle": "Projekte",
+  "projectsNew": "Neues Projekt",
+  "projectsOpen": "Projekt oeffnen",
+  "projectsEmpty": "Erstellen Sie Ihr erstes Projekt",
+  "projectsCreateError": "Projekt konnte nicht erstellt werden.",
+  "projectsInvalidProject": "Kein gueltiges XtractAid-Projekt",
+  "projectsOpenError": "Projekt konnte nicht geoeffnet werden.",
+  "projectsNotFound": "Projekt nicht gefunden.",
+  "projectsLastOpened": "Letzte Oeffnung:",
+  "projectsNever": "Nie",
+  "projectCreateTitle": "Neues Projekt erstellen",
+  "projectCreateNameHint": "Bitte Projektname eingeben.",
+  "projectCreateFolderHint": "Bitte Zielordner waehlen.",
+  "projectNoFolderSelected": "Kein Ordner ausgewaehlt",
+  "projectOpenTitle": "Projekt oeffnen",
+  "projectOpenFolderHint": "Bitte Projektordner waehlen.",
+
+  "projectDetailNewBatch": "Neuer Batch",
+  "projectDetailBatches": "Batches",
+  "projectDetailPrompts": "Prompts",
+  "projectDetailInput": "Input",
+  "projectDetailNoBatches": "Noch keine Batches vorhanden.",
+
+  "batchWizardItemsTitle": "Items laden",
+  "batchWizardPromptsTitle": "Prompts waehlen",
+  "batchWizardChunksTitle": "Chunks",
+  "batchWizardModelTitle": "Model konfigurieren",
+  "batchWizardConfirmTitle": "Bestaetigen + starten",
+  "batchWizardStartBatch": "Batch starten",
+  "batchWizardSelectSource": "Bitte zuerst eine Eingabequelle waehlen.",
+  "batchWizardLoadItems": "Bitte Items laden, bevor du fortfaehrst.",
+  "batchWizardSelectPrompt": "Bitte mindestens einen Prompt auswaehlen.",
+  "batchWizardSelectModel": "Bitte ein Model auswaehlen.",
+  "batchWizardConfirmPrivacy": "Bitte die Datenschutz-Bestaetigung aktivieren.",
+  "batchWizardStartError": "Batch kann nicht gestartet werden.",
+  "batchWizardSaveError": "Batch konnte nicht gespeichert werden.",
+  "batchWizardNotLoaded": "Batch Wizard konnte nicht geladen werden.",
+  "batchWizardProjectNotLoaded": "Projekt nicht geladen.",
+
+  "itemsExcelCsv": "Excel/CSV",
+  "itemsDocFolder": "Dokumenten-Ordner",
+  "itemsFileSource": "Dateiquelle",
+  "itemsFolderSource": "Ordnerquelle",
+  "itemsSummary": "Zusammenfassung:",
+  "itemsCount": "{count} Items, {warnings} Warnungen",
+  "@itemsCount": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "warnings": {"type": "int"}
+    }
+  },
+  "itemsIdColumn": "ID-Spalte",
+  "itemsItemColumn": "Item-Spalte",
+  "itemsPreviewText": "Text (Vorschau)",
+
+  "chunksChunkSize": "Chunk-Groesse:",
+  "chunksRepetitions": "Wiederholungen:",
+  "chunksCalcChunks": "{items} Items / {chunkSize} = {chunks} Chunks",
+  "@chunksCalcChunks": {
+    "placeholders": {
+      "items": {"type": "int"},
+      "chunkSize": {"type": "int"},
+      "chunks": {"type": "int"}
+    }
+  },
+  "chunksCalcCalls": "{chunks} Chunks x {prompts} Prompts x {reps} Wdh. = {calls} API-Calls",
+  "@chunksCalcCalls": {
+    "placeholders": {
+      "chunks": {"type": "int"},
+      "prompts": {"type": "int"},
+      "reps": {"type": "int"},
+      "calls": {"type": "int"}
+    }
+  },
+  "chunksTooltip": "Bei chunk_size > 1 werden mehrere Items gleichzeitig im Prompt gesendet. Dies spart API-Calls, kann aber die Qualitaet reduzieren.",
+
+  "confirmItems": "Items:",
+  "confirmSource": "Quelle:",
+  "confirmPrompts": "Prompts:",
+  "confirmChunkSize": "Chunk-Groesse:",
+  "confirmRepetitions": "Wiederholungen:",
+  "confirmTotalCalls": "Gesamt API-Calls:",
+  "confirmModel": "Model:",
+  "confirmPrivacyCheckbox": "Ich bestaetige, dass das Senden dieser Daten an den Cloud-Provider mit meinen Datenschutzanforderungen vereinbar ist.",
+
+  "promptPreview": "Prompt-Vorschau",
+
+  "modelContext": "Kontext:",
+  "modelPriceLabel": "Preis (Input/Output je 1M):",
+
+  "execTitle": "Ausfuehrung",
+  "execRepetition": "Repetition:",
+  "execPrompt": "Prompt:",
+  "execChunk": "Chunk:",
+  "execCompletedCalls": "Completed Calls:",
+  "execFailedCalls": "Failed Calls:",
+  "execInputTokens": "Input Tokens:",
+  "execOutputTokens": "Output Tokens:",
+  "execResults": "Results:",
+  "execLoadingConfig": "Batch-Konfiguration wird geladen...",
+  "execBatchNotFound": "Batch nicht gefunden.",
+  "execProjectNotFound": "Projekt nicht gefunden.",
+  "execInvalidConfig": "Ungueltige Batch-Konfiguration.",
+  "execNoItems": "Keine Items fuer die Ausfuehrung gefunden.",
+  "execLoadingPrompts": "Prompts werden geladen...",
+  "execNoPrompts": "Keine Prompt-Dateien aus der Batch-Konfiguration gefunden.",
+  "execStartFailed": "Start fehlgeschlagen: {error}",
+  "@execStartFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "execBatchStarted": "Batch gestartet.",
+  "execReportsCreated": "Reports erstellt: {paths}",
+  "@execReportsCreated": {
+    "placeholders": {
+      "paths": {"type": "String"}
+    }
+  },
+  "execReportsFailed": "Report-Generierung fehlgeschlagen: {error}",
+  "@execReportsFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+
+  "modelsTitle": "Modelle",
+  "modelsRegistry": "Registry Models",
+  "modelsCustom": "Custom Models",
+  "modelsDiscovered": "Discovered Models",
+  "modelsRegistryError": "Registry-Fehler: {error}",
+  "@modelsRegistryError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "modelsNoRegistry": "Keine Registry-Models gefunden.",
+  "modelsCountLabel": "{count} Modelle",
+  "@modelsCountLabel": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "modelsNoCustom": "Keine Custom Model Overrides vorhanden.",
+  "modelsQueryProviders": "Provider abfragen",
+  "modelsNoDiscovery": "Noch keine Discovery-Daten.",
+  "modelsIdLabel": "ID:",
+  "modelsProviderLabel": "Provider:",
+  "modelsStatusLabel": "Status:",
+  "modelsDescriptionLabel": "Description:",
+  "modelsContextWindow": "Context Window:",
+  "modelsMaxOutputTokens": "Max Output Tokens:",
+  "modelsCapabilities": "Capabilities",
+  "modelsParameters": "Parameters",
+  "modelsEditOverride": "Override bearbeiten:",
+  "modelsOverrideSaved": "Override gespeichert.",
+  "modelsOverrideDeleted": "Override geloescht.",
+
+  "settingsTitle": "Einstellungen",
+  "settingsSectionGeneral": "Allgemein",
+  "settingsSectionSecurity": "Sicherheit",
+  "settingsSectionPrivacy": "Datenschutz",
+  "settingsSectionAdvanced": "Erweitert",
+  "settingsSectionReset": "Zuruecksetzen",
+  "settingsChangePassword": "Passwort aendern",
+  "settingsChangePasswordDesc": "Master-Passwort fuer die Verschluesselung",
+  "settingsManageProviders": "API-Provider verwalten",
+  "settingsManageProvidersDesc": "API-Keys hinzufuegen, bearbeiten oder loeschen",
+  "settingsStrictLocalMode": "Strict Local Mode",
+  "settingsStrictLocalModeDesc": "Nur lokale Provider (Ollama, LM Studio) erlauben. Cloud-Provider werden deaktiviert.",
+  "settingsCheckpointInterval": "Checkpoint-Intervall",
+  "settingsCheckpointIntervalDesc": "Alle {count} API-Calls wird ein Checkpoint gespeichert",
+  "@settingsCheckpointIntervalDesc": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "settingsResetApp": "App zuruecksetzen",
+  "settingsResetAppDesc": "Alle Einstellungen, Provider und API-Keys loeschen. Projekte bleiben erhalten.",
+  "settingsPasswordChanged": "Passwort erfolgreich geaendert",
+  "settingsMinPasswordLength": "Mindestens 8 Zeichen",
+  "settingsPasswordMismatch": "Passwoerter stimmen nicht ueberein",
+  "settingsWrongPassword": "Aktuelles Passwort ist falsch",
+  "settingsProviderTitle": "API-Provider",
+  "settingsNoProviders": "Keine Provider konfiguriert",
+  "settingsDeleteProvider": "Provider loeschen?",
+  "settingsDeleteProviderDesc": "Provider \"{name}\" und den gespeicherten API-Key loeschen?",
+  "@settingsDeleteProviderDesc": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "settingsResetTitle": "App zuruecksetzen?",
+  "settingsResetDesc": "Alle Einstellungen, Provider und API-Keys werden geloescht. Projekt-Ordner auf der Festplatte bleiben erhalten.\n\nDiese Aktion kann nicht rueckgaengig gemacht werden.",
+
+  "costTitle": "Kosten-Vorschau",
+  "costInputTokens": "Input-Tokens:",
+  "costOutputTokens": "Output-Tokens:",
+  "costApiCalls": "API-Calls:",
+  "costTotal": "Gesamt:",
+  "costDisclaimer": "Schaetzung basierend auf modellnahem GPT-4o/o1-Tokenizer.",
+
+  "privacyTitle": "Datenschutz-Hinweis",
+  "privacyMessage": "Sie senden Daten an {provider} ({region}). DSGVO und interne Richtlinien beachten.",
+  "@privacyMessage": {
+    "placeholders": {
+      "provider": {"type": "String"},
+      "region": {"type": "String"}
+    }
+  },
+  "privacyDontShowAgain": "Nicht mehr anzeigen",
+  "privacyUnderstood": "Verstanden",
+
+  "resumeTitle": "Checkpoint gefunden",
+  "resumeSaved": "Gespeichert:",
+  "resumeProgress": "Fortschritt:",
+  "resumeCalls": "Calls:",
+  "resumeTokens": "Tokens:",
+  "resumeRestart": "Neu starten",
+  "resumeContinue": "Fortsetzen",
+
+  "logLevelAll": "Alle",
+  "logLevelLabel": "Level:",
+
+  "noSourceSelected": "Keine Quelle gewaehlt",
+
+  "errorGeneric": "Fehler: {error}",
+  "@errorGeneric": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  }
+}

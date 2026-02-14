@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
+
 class StepApiKey extends StatelessWidget {
   const StepApiKey({
     super.key,
@@ -20,24 +22,23 @@ class StepApiKey extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     final color = connectionOk ? Colors.green : Theme.of(context).colorScheme.error;
     final icon = connectionOk ? Icons.check_circle : Icons.error;
-    final text = connectionOk ? 'Verbindung erfolgreich.' : 'Verbindung fehlgeschlagen.';
+    final text = connectionOk ? t.setupConnectionSuccess : t.setupConnectionFailed;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (isLocalProvider)
-          const Text(
-            'Lokaler Provider: API-Key wird nicht benoetigt. Bitte nur die Verbindung testen.',
-          )
+          Text(t.setupLocalApiKeyHint)
         else
           TextField(
             controller: apiKeyController,
             obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'API-Key',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: t.labelApiKey,
+              border: const OutlineInputBorder(),
             ),
           ),
         const SizedBox(height: 16),
@@ -50,7 +51,7 @@ class StepApiKey extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.network_check),
-          label: const Text('Verbindung testen'),
+          label: Text(t.actionTestConnection),
         ),
         const SizedBox(height: 12),
         if (connectionTested)

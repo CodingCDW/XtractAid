@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/provider_config.dart';
 import '../../providers/database_provider.dart';
@@ -89,7 +90,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         _providers = providers;
         _selectedProviderId = providers.isNotEmpty ? providers.first.id : null;
         _providerLoadError = providers.isEmpty
-            ? 'Keine Providerdaten gefunden.'
+            ? S.of(context)!.setupNoProviderData
             : null;
         _isLoadingProviders = false;
       });
@@ -98,7 +99,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         return;
       }
       setState(() {
-        _providerLoadError = 'Provider konnten nicht geladen werden.';
+        _providerLoadError = S.of(context)!.setupProviderLoadError;
         _isLoadingProviders = false;
       });
     }
@@ -170,7 +171,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       await db.settingsDao.setValue('language', _language);
       return true;
     } catch (_) {
-      _showError('Sprache konnte nicht gespeichert werden.');
+      _showError(S.of(context)!.setupLanguageSaveError);
       return false;
     }
   }
@@ -181,13 +182,13 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
 
     if (password.length < 8) {
       setState(() {
-        _passwordError = 'Mindestens 8 Zeichen erforderlich.';
+        _passwordError = S.of(context)!.setupMinPasswordLength;
       });
       return false;
     }
     if (password != confirm) {
       setState(() {
-        _passwordError = 'Passwoerter stimmen nicht ueberein.';
+        _passwordError = S.of(context)!.setupPasswordMismatch;
       });
       return false;
     }
@@ -219,7 +220,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       });
       return true;
     } catch (_) {
-      _showError('Passwort konnte nicht gespeichert werden.');
+      _showError(S.of(context)!.setupPasswordSaveError);
       return false;
     } finally {
       if (mounted) {
@@ -232,7 +233,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
 
   Future<bool> _validateProviderStep() async {
     if (_selectedProvider == null) {
-      _showError('Bitte einen Provider auswaehlen.');
+      _showError(S.of(context)!.setupSelectProvider);
       return false;
     }
     return true;
@@ -241,12 +242,12 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
   Future<void> _testConnection() async {
     final provider = _selectedProvider;
     if (provider == null) {
-      _showError('Kein Provider ausgewaehlt.');
+      _showError(S.of(context)!.setupNoProviderSelected);
       return;
     }
 
     if (!provider.isLocal && _apiKeyController.text.trim().isEmpty) {
-      _showError('Bitte API-Key eingeben.');
+      _showError(S.of(context)!.setupEnterApiKey);
       return;
     }
 
@@ -290,11 +291,11 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
   Future<bool> _saveProvider() async {
     final provider = _selectedProvider;
     if (provider == null) {
-      _showError('Kein Provider ausgewaehlt.');
+      _showError(S.of(context)!.setupNoProviderSelected);
       return false;
     }
     if (!_connectionTested || !_connectionOk) {
-      _showError('Bitte zuerst eine erfolgreiche Verbindung pruefen.');
+      _showError(S.of(context)!.setupTestConnectionFirst);
       return false;
     }
 
@@ -302,7 +303,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     final db = ref.read(databaseProvider);
 
     if (!provider.isLocal && _apiKeyController.text.trim().isEmpty) {
-      _showError('Bitte API-Key eingeben.');
+      _showError(S.of(context)!.setupEnterApiKey);
       return false;
     }
 
@@ -337,7 +338,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       });
       return true;
     } catch (_) {
-      _showError('Provider konnte nicht gespeichert werden.');
+      _showError(S.of(context)!.setupProviderSaveError);
       return false;
     } finally {
       if (mounted) {
@@ -357,7 +358,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       );
       return true;
     } catch (_) {
-      _showError('Grundeinstellungen konnten nicht gespeichert werden.');
+      _showError(S.of(context)!.setupSettingsSaveError);
       return false;
     }
   }
@@ -374,7 +375,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       context.go('/projects');
       return true;
     } catch (_) {
-      _showError('Setup konnte nicht abgeschlossen werden.');
+      _showError(S.of(context)!.setupCompleteError);
       return false;
     }
   }
@@ -391,10 +392,11 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     final provider = _selectedProvider;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ersteinrichtung')),
+      appBar: AppBar(title: Text(t.setupTitle)),
       body: Stepper(
         currentStep: _currentStep,
         onStepContinue: _handleContinue,
@@ -411,20 +413,20 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             children: [
               FilledButton(
                 onPressed: _isBusy ? null : details.onStepContinue,
-                child: Text(isLast ? 'XtractAid starten' : 'Weiter'),
+                child: Text(isLast ? t.setupStartApp : t.actionNext),
               ),
               const SizedBox(width: 12),
               if (_currentStep > 0)
                 TextButton(
                   onPressed: _isBusy ? null : details.onStepCancel,
-                  child: const Text('Zurueck'),
+                  child: Text(t.actionBack),
                 ),
             ],
           );
         },
         steps: [
           Step(
-            title: const Text('Willkommen'),
+            title: Text(t.setupStepWelcome),
             isActive: _currentStep >= 0,
             content: StepWelcome(
               language: _language,
@@ -439,7 +441,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('Master-Passwort'),
+            title: Text(t.setupStepPassword),
             isActive: _currentStep >= 1,
             content: StepPassword(
               passwordController: _passwordController,
@@ -454,7 +456,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('Provider waehlen'),
+            title: Text(t.setupStepProvider),
             isActive: _currentStep >= 2,
             content: StepProvider(
               providers: _providers,
@@ -472,7 +474,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('API-Key und Test'),
+            title: Text(t.setupStepApiKey),
             isActive: _currentStep >= 3,
             content: StepApiKey(
               isLocalProvider: provider?.isLocal ?? false,
@@ -484,7 +486,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('Grundeinstellungen'),
+            title: Text(t.setupStepBasicSettings),
             isActive: _currentStep >= 4,
             content: StepBasicSettings(
               strictLocalMode: _strictLocalMode,
@@ -496,7 +498,7 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('Fertig'),
+            title: Text(t.setupStepFinish),
             isActive: _currentStep >= 5,
             content: StepFinish(
               providerName: provider?.name ?? '',

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../providers/database_provider.dart';
 
 class ProjectDetailScreen extends ConsumerWidget {
@@ -16,6 +17,7 @@ class ProjectDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = S.of(context)!;
     final db = ref.watch(databaseProvider);
 
     return FutureBuilder(
@@ -27,7 +29,7 @@ class ProjectDetailScreen extends ConsumerWidget {
 
         final project = snapshot.data;
         if (project == null) {
-          return const Center(child: Text('Projekt nicht gefunden.'));
+          return Center(child: Text(t.projectsNotFound));
         }
 
         return Padding(
@@ -50,7 +52,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                   FilledButton.icon(
                     onPressed: () => context.go('/projects/$projectId/batch/new'),
                     icon: const Icon(Icons.add),
-                    label: const Text('Neuer Batch'),
+                    label: Text(t.projectDetailNewBatch),
                   ),
                 ],
               ),
@@ -60,11 +62,11 @@ class ProjectDetailScreen extends ConsumerWidget {
                   length: 3,
                   child: Column(
                     children: [
-                      const TabBar(
+                      TabBar(
                         tabs: [
-                          Tab(text: 'Batches'),
-                          Tab(text: 'Prompts'),
-                          Tab(text: 'Input'),
+                          Tab(text: t.projectDetailBatches),
+                          Tab(text: t.projectDetailPrompts),
+                          Tab(text: t.projectDetailInput),
                         ],
                       ),
                       Expanded(
@@ -75,7 +77,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                               builder: (context, batchSnapshot) {
                                 final batches = batchSnapshot.data ?? const [];
                                 if (batches.isEmpty) {
-                                  return const Center(child: Text('Noch keine Batches vorhanden.'));
+                                  return Center(child: Text(t.projectDetailNoBatches));
                                 }
                                 return ListView.separated(
                                   itemCount: batches.length,
@@ -84,7 +86,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                                     final batch = batches[index];
                                     return ListTile(
                                       title: Text(batch.name),
-                                      subtitle: Text('Status: ${batch.status}'),
+                                      subtitle: Text('${t.labelStatus} ${batch.status}'),
                                       onTap: () => context.go('/projects/$projectId/batch/${batch.id}'),
                                     );
                                   },

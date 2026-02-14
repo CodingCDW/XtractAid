@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
+
 class StepFinish extends StatelessWidget {
   const StepFinish({
     super.key,
@@ -14,15 +16,16 @@ class StepFinish extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Setup-Zusammenfassung', style: Theme.of(context).textTheme.titleLarge),
+        Text(t.setupSummaryTitle, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.hub),
-          title: const Text('Provider'),
+          title: Text(t.labelProvider),
           subtitle: Text(providerName.isEmpty ? '-' : providerName),
         ),
         ListTile(
@@ -31,8 +34,8 @@ class StepFinish extends StatelessWidget {
             connectionOk ? Icons.check_circle : Icons.error,
             color: connectionOk ? Colors.green : Theme.of(context).colorScheme.error,
           ),
-          title: const Text('Verbindung'),
-          subtitle: Text(connectionOk ? 'OK' : 'Nicht getestet/fehlgeschlagen'),
+          title: Text(t.setupSummaryConnection),
+          subtitle: Text(connectionOk ? t.setupSummaryConnectionOk : t.setupSummaryConnectionFail),
         ),
         ListTile(
           contentPadding: EdgeInsets.zero,
@@ -40,8 +43,8 @@ class StepFinish extends StatelessWidget {
             passwordSet ? Icons.lock : Icons.lock_open,
             color: passwordSet ? Colors.green : Theme.of(context).colorScheme.error,
           ),
-          title: const Text('Master-Passwort'),
-          subtitle: Text(passwordSet ? 'Gesetzt' : 'Nicht gesetzt'),
+          title: Text(t.labelMasterPassword),
+          subtitle: Text(passwordSet ? t.setupSummaryPasswordSet : t.setupSummaryPasswordNotSet),
         ),
       ],
     );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
+
 class NewProjectDialogResult {
   const NewProjectDialogResult({
     required this.name,
@@ -44,17 +46,18 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
   }
 
   void _submit() {
+    final t = S.of(context)!;
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       setState(() {
-        _errorText = 'Bitte Projektname eingeben.';
+        _errorText = t.projectCreateNameHint;
       });
       return;
     }
     final baseDir = _selectedDirectory;
     if (baseDir == null || baseDir.isEmpty) {
       setState(() {
-        _errorText = 'Bitte Zielordner waehlen.';
+        _errorText = t.projectCreateFolderHint;
       });
       return;
     }
@@ -66,8 +69,9 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return AlertDialog(
-      title: const Text('Neues Projekt erstellen'),
+      title: Text(t.projectCreateTitle),
       content: SizedBox(
         width: 520,
         child: Column(
@@ -76,8 +80,8 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
           children: [
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Projektname',
+              decoration: InputDecoration(
+                labelText: t.labelProjectName,
               ),
             ),
             const SizedBox(height: 12),
@@ -85,14 +89,14 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
               children: [
                 Expanded(
                   child: Text(
-                    _selectedDirectory ?? 'Kein Ordner ausgewaehlt',
+                    _selectedDirectory ?? t.projectNoFolderSelected,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton(
                   onPressed: _pickDirectory,
-                  child: const Text('Ordner waehlen'),
+                  child: Text(t.actionChooseFolder),
                 ),
               ],
             ),
@@ -109,11 +113,11 @@ class _NewProjectDialogState extends State<NewProjectDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Abbrechen'),
+          child: Text(t.actionCancel),
         ),
         FilledButton(
           onPressed: _submit,
-          child: const Text('Erstellen'),
+          child: Text(t.actionCreate),
         ),
       ],
     );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/encryption_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -27,10 +28,11 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
   }
 
   Future<void> _unlock() async {
+    final t = S.of(context)!;
     final password = _passwordController.text;
     if (password.isEmpty) {
       setState(() {
-        _errorText = 'Bitte Passwort eingeben.';
+        _errorText = t.authEnterPassword;
       });
       return;
     }
@@ -48,7 +50,7 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
       final storedHash = await db.settingsDao.getValue('password_hash');
       if (saltB64 == null || storedHash == null) {
         setState(() {
-          _errorText = 'Setup unvollstaendig. Bitte neu einrichten.';
+          _errorText = t.authSetupIncomplete;
         });
         return;
       }
@@ -57,7 +59,7 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
       final isValid = encryption.verifyPassword(password, salt, storedHash);
       if (!isValid) {
         setState(() {
-          _errorText = 'Falsches Passwort';
+          _errorText = t.authWrongPassword;
         });
         return;
       }
@@ -69,7 +71,7 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
       context.go('/projects');
     } catch (_) {
       setState(() {
-        _errorText = 'Entsperren fehlgeschlagen.';
+        _errorText = t.authUnlockFailed;
       });
     } finally {
       if (mounted) {
@@ -81,18 +83,17 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
   }
 
   Future<void> _showForgotPasswordDialog() async {
+    final t = S.of(context)!;
     final result = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Passwort vergessen?'),
-          content: const Text(
-            'Alle API-Keys werden geloescht. Fortfahren?',
-          ),
+          title: Text(t.authForgotPassword),
+          content: Text(t.authResetWarning),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Abbrechen'),
+              child: Text(t.actionCancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
@@ -136,7 +137,7 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(content: Text('Reset fehlgeschlagen.')),
+          SnackBar(content: Text(S.of(context)!.authResetFailed)),
         );
     } finally {
       if (mounted) {
@@ -149,6 +150,7 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
@@ -181,7 +183,7 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
                   },
                   onSubmitted: (_) => _unlock(),
                   decoration: InputDecoration(
-                    labelText: 'Master Password',
+                    labelText: t.labelMasterPassword,
                     prefixIcon: const Icon(Icons.lock),
                     errorText: _errorText,
                   ),
@@ -195,12 +197,12 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Unlock'),
+                      : Text(t.actionUnlock),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: _isBusy ? null : _showForgotPasswordDialog,
-                  child: const Text('Passwort vergessen?'),
+                  child: Text(t.authForgotPassword),
                 ),
               ],
             ),

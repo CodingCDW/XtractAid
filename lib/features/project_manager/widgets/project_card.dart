@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../data/database/app_database.dart';
 
 class ProjectCard extends StatelessWidget {
@@ -12,9 +13,9 @@ class ProjectCard extends StatelessWidget {
   final Project project;
   final VoidCallback onOpen;
 
-  String _formatDate(DateTime? dt) {
+  String _formatDate(DateTime? dt, String neverLabel) {
     if (dt == null) {
-      return 'Nie';
+      return neverLabel;
     }
     final local = dt.toLocal();
     return '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
@@ -22,6 +23,7 @@ class ProjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -32,14 +34,14 @@ class ProjectCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(project.path),
             const SizedBox(height: 8),
-            Text('Letzte Oeffnung: ${_formatDate(project.lastOpenedAt)}'),
+            Text('${t.projectsLastOpened} ${_formatDate(project.lastOpenedAt, t.projectsNever)}'),
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton.icon(
                 onPressed: onOpen,
                 icon: const Icon(Icons.open_in_new),
-                label: const Text('Oeffnen'),
+                label: Text(t.actionOpen),
               ),
             ),
           ],
