@@ -8,7 +8,9 @@ import 'package:flutter/foundation.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:xml/xml.dart' as xml;
 
+import '../core/constants/app_constants.dart';
 import '../data/models/item.dart';
+import 'pdf_ocr_service.dart';
 
 /// Result of parsing a file or folder.
 class ParseResult {
@@ -35,6 +37,13 @@ class ParseProgressEvent {
 
 class FileParserService {
   static const int _maxCumulativeChars = 5000000; // 5M chars warning threshold
+
+  FileParserService({bool? enableOcrFallback, PdfOcrService? pdfOcrService})
+    : _enableOcrFallback = enableOcrFallback ?? AppConstants.enableOcrFallback,
+      _pdfOcrService = pdfOcrService ?? const PdfOcrService();
+
+  final bool _enableOcrFallback;
+  final PdfOcrService _pdfOcrService;
 
   /// Parse an Excel file. Expects columns for ID and Item text.
   Future<ParseResult> parseExcel(
@@ -183,7 +192,7 @@ class FileParserService {
       document.dispose();
     }
 
-    final text = buffer.toString().trim();
+    var text = buffer.toString().trim();
     if (text.isEmpty) {
       return ParseResult(
         items: [],
@@ -192,9 +201,24 @@ class FileParserService {
     }
 
     if (_isLowQualityPdfText(text)) {
-      warnings.add(
-        'PDF text quality appears low. Consider OCR fallback for this file: $filePath',
-      );
+      if (_enableOcrFallback) {
+        final ocrText =
+            (await _pdfOcrService.extractText(filePath))?.trim() ?? '';
+        if (ocrText.isNotEmpty) {
+          text = ocrText;
+          warnings.add(
+            'OCR fallback applied due to low-quality digital extraction: $filePath',
+          );
+        } else {
+          warnings.add(
+            'PDF text quality appears low and OCR fallback returned no text: $filePath',
+          );
+        }
+      } else {
+        warnings.add(
+          'PDF text quality appears low. OCR fallback is disabled: $filePath',
+        );
+      }
     }
 
     final fileName = File(filePath).uri.pathSegments.last;

@@ -695,6 +695,7 @@ Ziel: Die Risiken DOCX-Qualitaet, komplexe PDF-Extraktion, ungenaue Token-Schaet
 - Buildgroessen-Budget definieren (Standard-Windows-Release darf nur moderat wachsen; OCR separat).
 - Smoke-Test vor Release: DOCX, Digital-PDF, Scan-PDF (mit OCR-Flag), XLSX-Export, Batch-Ende-zu-Ende.
 - Ergebnisprotokoll je Release: Parsing-Qualitaet, Token-Abweichung, Artefaktgroesse, Lizenzreport.
+- CI-Lizenz-/Dependency-Guard aktiv: `scripts/check_dependency_allowlist.dart` + `.github/workflows/ci.yml`.
 
 ---
 
@@ -831,10 +832,10 @@ test/widget_test.dart                                     (Minimal-Test -> Phase
 | Risiko | Mitigation | Status |
 |--------|-----------|--------|
 | DOCX-Parsing-Qualitaet | Erweiterter Pure-Dart-OOXML-Parser + Fallback-Logik + Testkorpus | In Arbeit (Phase 5.6.1) |
-| PDF-Textextraktion bei komplexen PDFs | `pdfrx` fuer Digital-PDF + qualitaetsgesteuerter OCR-Fallback (`pdf_ocr`) | Geplant (Phase 5.6.2) |
+| PDF-Textextraktion bei komplexen PDFs | `pdfrx` fuer Digital-PDF + qualitaetsgesteuerter OCR-Fallback (Feature-Flag + OCR-Service-Hook) | In Arbeit (Phase 5.6.2) |
 | Isolate-Kommunikation Komplexitaet | Klares sealed-class Protokoll mit WorkerMessageCodec | Erledigt (Phase 4) |
 | Token-Schaetzung ungenau (chars/4) | Umstieg auf `tiktoken_tokenizer_gpt4o_o1` + Modell-Mapping + Kalibrierungstests | Geplant (Phase 5.6.3) |
-| Syncfusion Lizenz | Vollstaendige Migration auf MIT/Apache-Stack (`excel`, `pdfrx`, optional `pdf_ocr`) + CI-Lizenz-Guard | Geplant (Phase 5.6.4) |
+| Syncfusion Lizenz | Vollstaendige Migration auf MIT/Apache-Stack (`excel`, `pdfrx`, optional `pdf_ocr`) + CI-Lizenz-Guard | In Arbeit (Phase 5.6.4) |
 | freezed Code-Gen nicht aktiv | ~~Datenklassen funktionieren manuell~~ Code-Gen laeuft, `.freezed.dart`/`.g.dart` vorhanden | Erledigt |
 
 ---

@@ -36,6 +36,9 @@ abstract final class AppConstants {
   static const int maxRetries = 5;
   static const Duration rateLimitDelay = Duration(seconds: 30);
 
+  // Document pipeline
+  static const bool enableOcrFallback = false;
+
   // UI
   static const int recentProjectsLimit = 10;
 }
