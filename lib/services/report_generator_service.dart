@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:excel/excel.dart' as xls;
 import 'package:path/path.dart' as p;
-import 'package:syncfusion_flutter_xlsio/xlsio.dart';
 
 import '../data/models/batch_config.dart';
 import '../data/models/batch_stats.dart';
@@ -35,10 +35,7 @@ class ReportGeneratorService {
       outputDir.createSync(recursive: true);
     }
 
-    final excelPath = await _generateExcel(
-      outputDir.path,
-      results,
-    );
+    final excelPath = await _generateExcel(outputDir.path, results);
     final markdownPath = await _generateMarkdown(
       outputDir.path,
       config: config,
@@ -69,32 +66,27 @@ class ReportGeneratorService {
     String outputDir,
     List<Map<String, dynamic>> results,
   ) async {
-    final workbook = Workbook();
-    final sheet = workbook.worksheets[0];
-    sheet.name = 'results';
+    final workbook = xls.Excel.createExcel();
+    final sheet = workbook['results'];
 
     final headers = _collectHeaders(results);
-    for (var col = 0; col < headers.length; col++) {
-      sheet.getRangeByIndex(1, col + 1).setText(headers[col]);
-    }
-
-    for (var row = 0; row < results.length; row++) {
-      final result = results[row];
-      for (var col = 0; col < headers.length; col++) {
-        final key = headers[col];
-        final value = result[key];
-        sheet.getRangeByIndex(row + 2, col + 1).setText(_stringify(value));
-      }
-    }
-
     if (headers.isNotEmpty) {
-      for (var i = 1; i <= headers.length; i++) {
-        sheet.autoFitColumn(i);
-      }
+      sheet.appendRow(
+        headers.map((h) => xls.TextCellValue(h)).toList(growable: false),
+      );
     }
 
-    final bytes = workbook.saveAsStream();
-    workbook.dispose();
+    for (final result in results) {
+      final row = headers
+          .map((key) => xls.TextCellValue(_stringify(result[key])))
+          .toList(growable: false);
+      sheet.appendRow(row);
+    }
+
+    final bytes = workbook.encode();
+    if (bytes == null) {
+      throw StateError('Excel encoding failed.');
+    }
 
     final path = p.join(outputDir, 'results.xlsx');
     final file = File(path);
@@ -132,12 +124,16 @@ class ReportGeneratorService {
       ..writeln('- Chunk size: ${config.chunkSettings.chunkSize}')
       ..writeln('- Repetitions: ${config.chunkSettings.repetitions}')
       ..writeln('- Prompts: ${config.promptFiles.join(', ')}')
-      ..writeln('- Models: ${config.models.map((m) => '${m.providerId}:${m.modelId}').join(', ')}')
+      ..writeln(
+        '- Models: ${config.models.map((m) => '${m.providerId}:${m.modelId}').join(', ')}',
+      )
       ..writeln()
       ..writeln('## Token Stats')
       ..writeln('- Input tokens: ${stats.totalInputTokens}')
       ..writeln('- Output tokens: ${stats.totalOutputTokens}')
-      ..writeln('- Total tokens: ${stats.totalInputTokens + stats.totalOutputTokens}')
+      ..writeln(
+        '- Total tokens: ${stats.totalInputTokens + stats.totalOutputTokens}',
+      )
       ..writeln()
       ..writeln('## Cost')
       ..writeln('- Total cost (USD): ${stats.totalCost.toStringAsFixed(6)}')
@@ -191,18 +187,24 @@ class ReportGeneratorService {
         ? 0
         : (successCalls / stats.completedApiCalls) * 100;
 
-    final itemsHtml = results.asMap().entries.map((entry) {
-      final i = entry.key + 1;
-      final map = entry.value;
-      final fields = map.entries
-          .map(
-            (e) => '<dt>${_escapeHtml(e.key)}</dt><dd>${_escapeHtml(_stringify(e.value))}</dd>',
-          )
-          .join();
-      return '<section class="item"><h3>Item $i</h3><dl>$fields</dl></section>';
-    }).join('\n');
+    final itemsHtml = results
+        .asMap()
+        .entries
+        .map((entry) {
+          final i = entry.key + 1;
+          final map = entry.value;
+          final fields = map.entries
+              .map(
+                (e) =>
+                    '<dt>${_escapeHtml(e.key)}</dt><dd>${_escapeHtml(_stringify(e.value))}</dd>',
+              )
+              .join();
+          return '<section class="item"><h3>Item $i</h3><dl>$fields</dl></section>';
+        })
+        .join('\n');
 
-    final html = '''
+    final html =
+        '''
 <!doctype html>
 <html lang="en">
 <head>

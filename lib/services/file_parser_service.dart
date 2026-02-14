@@ -4,7 +4,8 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:excel/excel.dart' as xls;
-import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:flutter/foundation.dart';
+import 'package:pdfrx/pdfrx.dart';
 import 'package:xml/xml.dart' as xml;
 
 import '../data/models/item.dart';
@@ -29,8 +30,7 @@ class ParseProgressEvent {
     required this.totalFiles,
   });
 
-  double get progress =>
-      totalFiles > 0 ? filesProcessed / totalFiles : 0;
+  double get progress => totalFiles > 0 ? filesProcessed / totalFiles : 0;
 }
 
 class FileParserService {
@@ -51,10 +51,7 @@ class FileParserService {
         : excel.tables.values.first;
 
     if (sheet.rows.isEmpty) {
-      return const ParseResult(
-        items: [],
-        warnings: ['Excel file is empty.'],
-      );
+      return const ParseResult(items: [], warnings: ['Excel file is empty.']);
     }
 
     // Find column indices from header row
@@ -80,7 +77,10 @@ class FileParserService {
           'Column "$itemColumn" not found. Using column ${itemIdx + 1} as item text.',
         );
       } else {
-        return ParseResult(items: [], warnings: ['Column "$itemColumn" not found.']);
+        return ParseResult(
+          items: [],
+          warnings: ['Column "$itemColumn" not found.'],
+        );
       }
     }
 
@@ -136,9 +136,7 @@ class FileParserService {
     final items = <Item>[];
     for (var i = 1; i < lines.length; i++) {
       final cols = lines[i].split(separator);
-      final id = idIdx >= 0 && idIdx < cols.length
-          ? cols[idIdx].trim()
-          : 'R$i';
+      final id = idIdx >= 0 && idIdx < cols.length ? cols[idIdx].trim() : 'R$i';
       final text = itemIdx < cols.length ? cols[itemIdx].trim() : '';
       if (text.isNotEmpty) {
         items.add(Item(id: id, text: text, source: filePath));
@@ -153,10 +151,7 @@ class FileParserService {
     final file = File(filePath);
     final text = await file.readAsString(encoding: utf8);
     if (text.trim().isEmpty) {
-      return ParseResult(
-        items: [],
-        warnings: ['File is empty: $filePath'],
-      );
+      return ParseResult(items: [], warnings: ['File is empty: $filePath']);
     }
 
     final fileName = file.uri.pathSegments.last;
@@ -168,71 +163,96 @@ class FileParserService {
 
   /// Extract text from a PDF file.
   Future<ParseResult> parsePdf(String filePath) async {
-    final bytes = await File(filePath).readAsBytes();
-    final document = PdfDocument(inputBytes: bytes);
+    final warnings = <String>[];
+    final document = await PdfDocument.openFile(filePath);
+    final buffer = StringBuffer();
 
     try {
-      final extractor = PdfTextExtractor(document);
-      final text = extractor.extractText();
-
-      if (text.trim().isEmpty) {
-        return ParseResult(
-          items: [],
-          warnings: ['PDF contains no extractable text: $filePath'],
-        );
+      for (final page in document.pages) {
+        final rawText = await page.loadText();
+        final pageText = rawText.fullText;
+        if (pageText.trim().isNotEmpty) {
+          if (buffer.isNotEmpty) {
+            buffer.writeln();
+            buffer.writeln();
+          }
+          buffer.write(pageText.trim());
+        }
       }
-
-      final fileName = File(filePath).uri.pathSegments.last;
-      final id = fileName.replaceAll(RegExp(r'\.[^.]+$'), '');
-      return ParseResult(
-        items: [Item(id: id, text: text.trim(), source: filePath)],
-      );
     } finally {
       document.dispose();
     }
-  }
 
-  /// Extract text from a DOCX file (manual ZIP + XML parsing).
-  Future<ParseResult> parseDocx(String filePath) async {
-    final bytes = await File(filePath).readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
-
-    final documentFile = archive.findFile('word/document.xml');
-    if (documentFile == null) {
+    final text = buffer.toString().trim();
+    if (text.isEmpty) {
       return ParseResult(
         items: [],
-        warnings: ['Invalid DOCX: word/document.xml not found in $filePath'],
+        warnings: ['PDF contains no extractable text: $filePath'],
       );
     }
 
-    final xmlContent = utf8.decode(documentFile.content as List<int>);
-    final doc = xml.XmlDocument.parse(xmlContent);
-
-    // Extract text from all <w:t> elements within <w:p> paragraphs
-    final paragraphs = <String>[];
-    for (final paragraph in doc.findAllElements('w:p')) {
-      final texts = paragraph
-          .findAllElements('w:t')
-          .map((e) => e.innerText)
-          .join('');
-      if (texts.isNotEmpty) {
-        paragraphs.add(texts);
-      }
-    }
-
-    final text = paragraphs.join('\n');
-    if (text.trim().isEmpty) {
-      return ParseResult(
-        items: [],
-        warnings: ['DOCX contains no text: $filePath'],
+    if (_isLowQualityPdfText(text)) {
+      warnings.add(
+        'PDF text quality appears low. Consider OCR fallback for this file: $filePath',
       );
     }
 
     final fileName = File(filePath).uri.pathSegments.last;
     final id = fileName.replaceAll(RegExp(r'\.[^.]+$'), '');
     return ParseResult(
-      items: [Item(id: id, text: text.trim(), source: filePath)],
+      items: [Item(id: id, text: text, source: filePath)],
+      warnings: warnings,
     );
+  }
+
+  /// Extract text from a DOCX file.
+  Future<ParseResult> parseDocx(String filePath) async {
+    final extracted = await compute(_extractDocxPayload, filePath);
+    final text = (extracted['text'] as String? ?? '').trim();
+    final warnings = List<String>.from(
+      extracted['warnings'] as List<dynamic>? ?? const [],
+    );
+
+    if (text.isEmpty) {
+      return ParseResult(
+        items: [],
+        warnings: [...warnings, 'DOCX contains no extractable text: $filePath'],
+      );
+    }
+
+    final fileName = File(filePath).uri.pathSegments.last;
+    final id = fileName.replaceAll(RegExp(r'\.[^.]+$'), '');
+    return ParseResult(
+      items: [Item(id: id, text: text, source: filePath)],
+      warnings: warnings,
+    );
+  }
+
+  bool _isLowQualityPdfText(String text) {
+    if (text.length < 32) {
+      return true;
+    }
+
+    final printableCount = text.runes.where((rune) {
+      final isWhitespace = rune == 9 || rune == 10 || rune == 13 || rune == 32;
+      final isAsciiPrintable = rune >= 33 && rune <= 126;
+      final isLatinSupplement = rune >= 160 && rune <= 591;
+      return isWhitespace || isAsciiPrintable || isLatinSupplement;
+    }).length;
+
+    final printableRatio = printableCount / text.runes.length;
+    if (printableRatio < 0.7) {
+      return true;
+    }
+
+    final compact = text.replaceAll(RegExp(r'\s+'), '');
+    if (compact.isEmpty) {
+      return true;
+    }
+
+    final uniqueChars = compact.runes.toSet().length;
+    final uniquenessRatio = uniqueChars / compact.runes.length;
+    return uniquenessRatio < 0.05;
   }
 
   /// Parse a single file based on its extension.
@@ -265,16 +285,20 @@ class FileParserService {
     required void Function(List<Item> items, List<String> warnings) onComplete,
   }) async* {
     final dir = Directory(folderPath);
-    final supportedExtensions = {'.xlsx', '.xls', '.csv', '.pdf', '.docx', '.txt', '.md'};
+    final supportedExtensions = {
+      '.xlsx',
+      '.xls',
+      '.csv',
+      '.pdf',
+      '.docx',
+      '.txt',
+      '.md',
+    };
 
-    final files = dir
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((f) {
-          final ext = f.path.toLowerCase().split('.').last;
-          return supportedExtensions.contains('.$ext');
-        })
-        .toList();
+    final files = dir.listSync(recursive: true).whereType<File>().where((f) {
+      final ext = f.path.toLowerCase().split('.').last;
+      return supportedExtensions.contains('.$ext');
+    }).toList();
 
     final allItems = <Item>[];
     final allWarnings = <String>[];
@@ -295,7 +319,8 @@ class FileParserService {
         cumulativeChars += item.text.length;
       }
 
-      if (cumulativeChars > _maxCumulativeChars && allWarnings.every((w) => !w.contains('cumulative'))) {
+      if (cumulativeChars > _maxCumulativeChars &&
+          allWarnings.every((w) => !w.contains('cumulative'))) {
         allWarnings.add(
           'Warning: Cumulative text exceeds ${_maxCumulativeChars ~/ 1000000}M characters. '
           'This may result in high API costs.',
@@ -311,4 +336,145 @@ class FileParserService {
 
     onComplete(allItems, allWarnings);
   }
+}
+
+Map<String, Object?> _extractDocxPayload(String filePath) {
+  final warnings = <String>[];
+
+  try {
+    final bytes = File(filePath).readAsBytesSync();
+    final zip = ZipDecoder().decodeBytes(bytes);
+
+    final xmlCandidates = <String>[];
+    for (final file in zip.files) {
+      final name = file.name;
+      if (!name.startsWith('word/')) {
+        continue;
+      }
+      if (name == 'word/document.xml' ||
+          name == 'word/footnotes.xml' ||
+          name == 'word/endnotes.xml' ||
+          name.startsWith('word/header') ||
+          name.startsWith('word/footer')) {
+        xmlCandidates.add(name);
+      }
+    }
+
+    if (!xmlCandidates.contains('word/document.xml')) {
+      return <String, Object?>{
+        'text': '',
+        'warnings': <String>[
+          'Invalid DOCX: word/document.xml not found in $filePath',
+        ],
+      };
+    }
+
+    xmlCandidates.sort((a, b) {
+      if (a == 'word/document.xml') {
+        return -1;
+      }
+      if (b == 'word/document.xml') {
+        return 1;
+      }
+      return a.compareTo(b);
+    });
+
+    final parts = <String>[];
+    for (final xmlPath in xmlCandidates) {
+      final entry = zip.findFile(xmlPath);
+      if (entry == null) {
+        continue;
+      }
+
+      final content = _archiveFileContentAsBytes(entry);
+      if (content == null || content.isEmpty) {
+        continue;
+      }
+
+      final parsedText = _extractWordprocessingMlText(content);
+      if (parsedText.isNotEmpty) {
+        parts.add(parsedText);
+      }
+    }
+
+    final text = parts.join('\n\n').trim();
+    if (text.isEmpty) {
+      warnings.add('DOCX parsed but produced empty text body.');
+    }
+
+    return <String, Object?>{'text': text, 'warnings': warnings};
+  } catch (e) {
+    return <String, Object?>{
+      'text': '',
+      'warnings': <String>['DOCX parsing failed: $e'],
+    };
+  }
+}
+
+List<int>? _archiveFileContentAsBytes(ArchiveFile file) {
+  final content = file.content;
+  if (content is List<int>) {
+    return content;
+  }
+  if (content is Uint8List) {
+    return content;
+  }
+  return null;
+}
+
+String _extractWordprocessingMlText(List<int> xmlBytes) {
+  final content = utf8.decode(xmlBytes, allowMalformed: true);
+  final doc = xml.XmlDocument.parse(content);
+
+  final paragraphs = <String>[];
+  final paragraphElements = doc.descendants.whereType<xml.XmlElement>().where(
+    (element) => element.name.local == 'p',
+  );
+
+  for (final paragraph in paragraphElements) {
+    final text = _extractParagraphText(paragraph).trim();
+    if (text.isNotEmpty) {
+      paragraphs.add(text);
+    }
+  }
+
+  if (paragraphs.isNotEmpty) {
+    return paragraphs.join('\n');
+  }
+
+  // Fallback: flatten all text nodes when paragraph structure is missing.
+  final fallback = doc.descendants
+      .whereType<xml.XmlElement>()
+      .where((element) => element.name.local == 't')
+      .map((element) => element.innerText)
+      .join(' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  return fallback;
+}
+
+String _extractParagraphText(xml.XmlElement paragraph) {
+  final buffer = StringBuffer();
+
+  for (final node in paragraph.descendants.whereType<xml.XmlNode>()) {
+    if (node is! xml.XmlElement) {
+      continue;
+    }
+
+    switch (node.name.local) {
+      case 't':
+        buffer.write(node.innerText);
+        break;
+      case 'tab':
+        buffer.write('\t');
+        break;
+      case 'br':
+      case 'cr':
+        buffer.write('\n');
+        break;
+    }
+  }
+
+  return buffer.toString();
 }

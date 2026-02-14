@@ -8,8 +8,8 @@
 | Phase 1: Foundation | ERLEDIGT | Projekt, DB, Models, Encryption, Registry, App-Shell, Navigation. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
 | Phase 2: Core Services | ERLEDIGT | 8 Services implementiert. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
 | Phase 3: Frontend Core | ERLEDIGT | 3.1-3.5 umgesetzt (Setup, Auth, Projects, Batch Wizard, Shared Widgets) |
-| Phase 4: Integration | IN ARBEIT | 4.1-4.6 grundlegend implementiert; Feinschliff/Vertiefung fuer vollstaendige Abnahmekriterien offen |
-| Phase 5: Polish | NAECHSTER SCHRITT | Lokalisierung, Fehlerbehandlung, Testing, Distribution |
+| Phase 4: Integration | ERLEDIGT | 4.1-4.6 vollstaendig implementiert (Worker, Execution Screen, Reports, Model Manager). Code-Generierung (freezed/drift) laeuft. |
+| Phase 5: Polish | NAECHSTER SCHRITT | Lokalisierung, Fehlerbehandlung, Testing, Distribution + Dokument-Pipeline-Hardening (DOCX/PDF/Token/Lizenz) |
 
 ---
 
@@ -79,7 +79,7 @@ flutter test
 dart run build_runner build --delete-conflicting-outputs
 ```
 
-**Hinweis:** Die freezed/drift `.g.dart` und `.freezed.dart` Dateien werden NICHT generiert, da wir `build_runner` nicht laufen lassen. Stattdessen sind die Datenklassen so geschrieben, dass sie ohne Code-Generierung funktionieren (die `part`-Direktiven existieren, aber die generierten Dateien fehlen). Der Build funktioniert trotzdem, weil die Klassen manuell implementiert sind. Falls du Code-Generierung aktivieren willst, fuehre `dart run build_runner build` aus.
+**Hinweis:** Die freezed/drift `.g.dart` und `.freezed.dart` Dateien sind generiert und vorhanden. Bei Aenderungen an den Datenklassen oder Drift-Tabellen muss `dart run build_runner build --delete-conflicting-outputs` erneut ausgefuehrt werden.
 
 ---
 
@@ -142,7 +142,7 @@ Alle in `lib/data/models/`. Jede hat `fromJson`/`toJson`:
 | `TokenEstimationService` | `token_estimation_service.dart` | `estimateTokens(text)` -> int, `estimateBatchCost(promptTexts, totalItems, chunkSize, reps, maxTokens, pricing)` -> CostEstimate | Batch Wizard Schritt 5 (Kosten-Vorschau) |
 | `PromptService` | `prompt_service.dart` | `loadPrompts(promptsDir)` -> Map<name,content>, `hasPlaceholder(text)`, `injectItems(template, items)`, `validatePrompt(text)`, `createChunks(items, chunkSize)` | Batch Wizard Schritt 2, Batch Worker |
 | `ProjectFileService` | `project_file_service.dart` | `createProject(path, name, projectId)`, `validateProject(path)` -> Map?, `promptsDir(path)`, `inputDir(path)`, `resultsDir(path)` | Project Manager |
-| `LmStudioCliService` | `lm_studio_cli_service.dart` | `loadModel(modelId, onProgress)`, `waitForServer(baseUrl, timeout)`, `isCliAvailable()` | LM Studio Provider-Setup |
+| `LmStudioCliService` | `lm_studio_cli_service.dart` | `loadModel(modelId, onProgress)`, `waitForServer(baseUrl, timeout, pollInterval)`, `isCliAvailable()` | LM Studio Provider-Setup, Model Manager (Discovered-Tab) |
 
 ### Riverpod Providers (alle in `lib/providers/`)
 
@@ -180,12 +180,13 @@ Nach erfolgreicher Passwort-Eingabe navigiert `/auth` zu `/projects`.
 
 ### Platzhalter-Screens
 
-Folgende Screens sind aktuell noch Platzhalter und muessen in Phase 4/5 durch echte Implementierungen ersetzt werden:
+Folgender Screen ist aktuell noch ein Platzhalter und muss in Phase 5 durch eine echte Implementierung ersetzt werden:
 
 | Screen | Datei | Phase |
 |--------|-------|-------|
-| `ModelManagerScreen` | `lib/features/model_manager/model_manager_screen.dart` | Phase 4.5 |
-| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Phase 5 |
+| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Phase 5.2 |
+
+**Hinweis:** `ModelManagerScreen` war in Phase 4.6 als Platzhalter gelistet, ist inzwischen vollstaendig implementiert (3 Tabs: Registry, Custom, Discovered).
 
 ### Konstanten
 
@@ -197,7 +198,7 @@ Wichtige Werte:
 - `ivLength`: 12 Bytes (AES-GCM)
 - `keyLength`: 32 Bytes (AES-256)
 - `defaultCheckpointInterval`: 10 API-Calls
-- `charsPerToken`: 4 (Token-Schaetzung)
+- `charsPerToken`: entfernt (ersetzt durch tokenizer-basierte Schaetzung in `TokenEstimationService`)
 - `itemPlaceholder`: `[Insert IDs and Items here]`
 - `maxChunkSize`: 100
 - `maxRepetitions`: 100
@@ -489,7 +490,7 @@ Diese Widgets werden von mehreren Screens benutzt. Sie sollten alle **stateless*
 
 ---
 
-## Phase 4: Integration
+## Phase 4: Integration -- ERLEDIGT
 
 ### 4.1 Worker Messages (Sealed Classes)
 
@@ -525,9 +526,9 @@ class BatchErrorEvent extends WorkerEvent { final String message; final String? 
 
 ### 4.2 Batch Execution Worker (Isolate)
 
-**Status:** Grundgeruest umgesetzt in `lib/workers/batch_execution_worker.dart` (Start/Pause/Resume/Stop, Event-Emission, API-Loop, Checkpoints)
+**Status:** Vollstaendig umgesetzt in `lib/workers/batch_execution_worker.dart` (Start/Pause/Resume/Stop, Event-Emission, API-Loop, Checkpoints, Fehlerbehandlung)
 
-**Neue Datei:** `lib/workers/batch_execution_worker.dart`
+**Datei:** `lib/workers/batch_execution_worker.dart`
 
 Dies ist das Herzstueck der App. Ein langlebiger Isolate, der:
 
@@ -558,9 +559,9 @@ Dies ist das Herzstueck der App. Ein langlebiger Isolate, der:
 
 ### 4.3 Batch Execution Provider (Riverpod)
 
-**Status:** Grundgeruest umgesetzt in `lib/providers/batch_execution_provider.dart`
+**Status:** Vollstaendig umgesetzt in `lib/providers/batch_execution_provider.dart`
 
-**Neue Datei:** `lib/providers/batch_execution_provider.dart`
+**Datei:** `lib/providers/batch_execution_provider.dart`
 
 - `StateNotifier<BatchExecutionState>` mit States: `idle`, `starting`, `running(progress, logs, stats)`, `paused`, `completed(stats, results)`, `failed(error)`
 - Startet Isolate, sendet Commands, empfaengt Events
@@ -569,16 +570,11 @@ Dies ist das Herzstueck der App. Ein langlebiger Isolate, der:
 
 ### 4.4 Batch Execution Screen
 
-**Status:** Grundgeruest umgesetzt in `lib/features/batch_execution/batch_execution_screen.dart` und Router an `/projects/:projectId/batch/:batchId` angebunden
+**Status:** Vollstaendig umgesetzt in `lib/features/batch_execution/batch_execution_screen.dart` und Router an `/projects/:projectId/batch/:batchId` angebunden
 
-**Neue Dateien:**
-```
-lib/features/batch_execution/
-  batch_execution_screen.dart     -- Haupt-Screen
-  widgets/
-    execution_stats_panel.dart    -- Statistik-Panel
-    execution_controls.dart       -- Pause/Stop/Resume-Buttons
-```
+**Datei:** `lib/features/batch_execution/batch_execution_screen.dart`
+
+**Hinweis:** Die urspruenglich geplanten Unter-Widgets (`execution_stats_panel.dart`, `execution_controls.dart`) wurden nicht als separate Dateien erstellt. Die Statistik-Anzeige und die Steuer-Buttons sind direkt in `batch_execution_screen.dart` integriert.
 
 **Layout** (PRD 7.3):
 - **Oben:** Batch-Name + Status-Badge + Pause/Stop-Buttons
@@ -590,17 +586,18 @@ lib/features/batch_execution/
 
 ### 4.5 Report-Generierung
 
-**Status:** Grundlegend umgesetzt in `lib/services/report_generator_service.dart` und im Execution-Screen angebunden (Excel + Markdown + HTML)
+**Status:** Vollstaendig umgesetzt in `lib/services/report_generator_service.dart` und im Execution-Screen angebunden (Excel + Markdown + HTML)
 
-**Neue Datei:** `lib/services/report_generator_service.dart`
+**Datei:** `lib/services/report_generator_service.dart`
 
 3 Formate:
 
-**Excel (P0):**
-- `syncfusion_flutter_xlsio` -> `Workbook`, `Worksheet`
+**Excel (P0, aktueller Stand):**
+- Aktuell: `syncfusion_flutter_xlsio` -> `Workbook`, `Worksheet`
 - Erste Zeile: Header (ID + alle JSON-Keys aus den Ergebnissen)
 - Jede weitere Zeile: ein Item mit seinen Ergebnis-Werten
 - Speichern: `File('$resultsDir/results.xlsx').writeAsBytesSync(workbook.saveAsStream())`
+- Geplante Migration in Phase 5.6.4: Umstieg auf `excel` (MIT), um proprietaere Lizenzrisiken zu entfernen.
 
 **Markdown Log (P0):**
 - Session-Info (Start, Ende, Dauer, Status)
@@ -618,7 +615,7 @@ lib/features/batch_execution/
 
 ### 4.6 Model Manager UI
 
-**Status:** Grundlegend umgesetzt in `lib/features/model_manager/model_manager_screen.dart` (Tabs: Registry, Custom, Discovered)
+**Status:** Vollstaendig umgesetzt in `lib/features/model_manager/model_manager_screen.dart` (Tabs: Registry, Custom, Discovered)
 
 **Layout:** `DefaultTabController` mit 3 Tabs:
 
@@ -630,7 +627,7 @@ Jedes Model hat einen Detail-Dialog mit allen Feldern (Pricing, Parameters, Capa
 
 ---
 
-## Phase 5: Polish
+## Phase 5: Polish -- NAECHSTER SCHRITT
 
 ### 5.1 Lokalisierung (DE/EN)
 - ARB-Dateien unter `lib/core/l10n/`: `app_de.arb`, `app_en.arb`
@@ -660,6 +657,45 @@ Jedes Model hat einen Detail-Dialog mit allen Feldern (Pricing, Parameters, Capa
 - MSIX-Paket (`msix` Flutter-Package) oder Inno Setup
 - App-Icon in `windows/runner/resources/app_icon.ico`
 
+### 5.6 Dokument-Pipeline Hardening (NEU, Prioritaet P0)
+
+Ziel: Die Risiken DOCX-Qualitaet, komplexe PDF-Extraktion, ungenaue Token-Schaetzung und Syncfusion-Lizenz in einem konsistenten Open-Source-Stack beseitigen, ohne den Standard-Build unnoetig aufzublaehen.
+
+#### 5.6.1 DOCX-Parsing-Qualitaet
+- Bestehenden Pure-Dart-OOXML-Parser in `FileParserService.parseDocx()` erweitern (Dokument + Header/Footer + Footnotes + robustere XML-Namespace-Behandlung).
+- Fallback-Logik fuer defekte oder nicht-standardkonforme Dateien beibehalten.
+- Parsing im Hintergrund (`compute`) ausfuehren, inkl. Timeout und klaren Fehlercodes.
+- Testkorpus aufbauen (mind. 30 DOCX-Dateien: Tabellen, Fussnoten, Header/Footer, Sonderzeichen, lange Dokumente).
+- Akzeptanzkriterium: >= 98% erfolgreich extrahierte Dokumente ohne Crash und semantisch lesbarer Klartext.
+
+#### 5.6.2 PDF-Textextraktion bei komplexen PDFs
+- Digitale Textextraktion auf `pdfrx` (PDFium via FFI, MIT) migrieren.
+- Qualitaets-Scoring einfuehren (Textlaenge, druckbare Zeichenquote, Wiederholungsmuster, Nulltext-Erkennung).
+- OCR-Fallback nur bei schlechter Textqualitaet aktivieren, nicht pauschal.
+- OCR mit `pdf_ocr` (MIT/Apache) hinter Feature-Flag (`enableOcrFallback`) integrieren.
+- Buildgroesse steuern: OCR als optionaler Add-on-Installer/Build-Flavor, Standard-Release ohne OCR-Ballast.
+- Akzeptanzkriterium: Komplexe PDF-Suite (mind. 20 Dateien) mit signifikant weniger Leer-/Garbage-Extraktionen gegenueber aktuellem Stand.
+
+#### 5.6.3 Praezise Token-Schaetzung
+- `TokenEstimationService` von `chars/4` auf `tiktoken_tokenizer_gpt4o_o1` umstellen.
+- Modell-Mapping pflegen (z.B. GPT-4o/o1 -> `o200k_base`) und klaren Fallback fuer unbekannte Modelle definieren.
+- Live-Counter durch Caching (Hash aus Prompt+Input) performant halten.
+- UI-Hinweis von "ungefaehr" auf "modellbasiert geschaetzt" umstellen.
+- Akzeptanzkriterium: mittlere Abweichung <= 3% gegenueber API-Usage bei Referenz-Testset (mind. 100 Prompts).
+
+#### 5.6.4 Syncfusion-Lizenzrisiko eliminieren
+- `syncfusion_flutter_xlsio` und `syncfusion_flutter_pdf` aus `pubspec.yaml` entfernen.
+- Excel-Export in `ReportGeneratorService` auf `excel` (MIT) migrieren.
+- PDF-Verarbeitung vollstaendig auf `pdfrx` + optional `pdf_ocr` umstellen.
+- CI-Lizenz-Guard einfuehren (Allowlist: MIT/BSD/Apache-2.0; Build fail bei Abweichung).
+- Akzeptanzkriterium: keine Syncfusion-Abhaengigkeiten mehr in `pubspec.lock`, Release-Build weiterhin erfolgreich.
+
+### 5.7 Qualitaets-, Build- und Compliance-Gates (NEU)
+- Regressionstests fuer `FileParserService` und `TokenEstimationService` in CI verpflichtend.
+- Buildgroessen-Budget definieren (Standard-Windows-Release darf nur moderat wachsen; OCR separat).
+- Smoke-Test vor Release: DOCX, Digital-PDF, Scan-PDF (mit OCR-Flag), XLSX-Export, Batch-Ende-zu-Ende.
+- Ergebnisprotokoll je Release: Parsing-Qualitaet, Token-Abweichung, Artefaktgroesse, Lizenzreport.
+
 ---
 
 ## Bisher erstellte Dateien
@@ -675,6 +711,7 @@ lib/core/theme/app_theme.dart
 lib/core/router/app_router.dart
 lib/core/shell/app_shell.dart
 lib/data/database/app_database.dart
+lib/data/database/app_database.g.dart                     (generiert)
 lib/data/database/tables/settings_table.dart
 lib/data/database/tables/providers_table.dart
 lib/data/database/tables/models_table.dart
@@ -682,40 +719,78 @@ lib/data/database/tables/projects_table.dart
 lib/data/database/tables/batches_table.dart
 lib/data/database/tables/batch_logs_table.dart
 lib/data/database/daos/settings_dao.dart
+lib/data/database/daos/settings_dao.g.dart                (generiert)
 lib/data/database/daos/providers_dao.dart
+lib/data/database/daos/providers_dao.g.dart               (generiert)
 lib/data/database/daos/models_dao.dart
+lib/data/database/daos/models_dao.g.dart                  (generiert)
 lib/data/database/daos/projects_dao.dart
+lib/data/database/daos/projects_dao.g.dart                (generiert)
 lib/data/database/daos/batches_dao.dart
+lib/data/database/daos/batches_dao.g.dart                 (generiert)
 lib/data/database/daos/batch_logs_dao.dart
+lib/data/database/daos/batch_logs_dao.g.dart              (generiert)
 lib/data/models/provider_config.dart
+lib/data/models/provider_config.freezed.dart              (generiert)
+lib/data/models/provider_config.g.dart                    (generiert)
 lib/data/models/model_info.dart
+lib/data/models/model_info.freezed.dart                   (generiert)
+lib/data/models/model_info.g.dart                         (generiert)
 lib/data/models/batch_config.dart
+lib/data/models/batch_config.freezed.dart                 (generiert)
+lib/data/models/batch_config.g.dart                       (generiert)
 lib/data/models/batch_stats.dart
+lib/data/models/batch_stats.freezed.dart                  (generiert)
+lib/data/models/batch_stats.g.dart                        (generiert)
 lib/data/models/cost_estimate.dart
+lib/data/models/cost_estimate.freezed.dart                (generiert)
+lib/data/models/cost_estimate.g.dart                      (generiert)
 lib/data/models/item.dart
+lib/data/models/item.freezed.dart                         (generiert)
+lib/data/models/item.g.dart                               (generiert)
 lib/data/models/checkpoint.dart
+lib/data/models/checkpoint.freezed.dart                   (generiert)
+lib/data/models/checkpoint.g.dart                         (generiert)
 lib/data/models/log_entry.dart
+lib/data/models/log_entry.freezed.dart                    (generiert)
+lib/data/models/log_entry.g.dart                          (generiert)
 lib/services/encryption_service.dart
 lib/services/model_registry_service.dart
 lib/providers/database_provider.dart
 lib/providers/encryption_provider.dart
 lib/providers/model_registry_provider.dart
 lib/providers/settings_provider.dart
-lib/features/setup_wizard/setup_wizard_screen.dart  (Umgesetzt in Phase 3.1)
+```
+
+### Phase 2 (Core Services)
+```
+lib/services/file_parser_service.dart
+lib/services/llm_api_service.dart
+lib/services/json_parser_service.dart
+lib/services/checkpoint_service.dart
+lib/services/token_estimation_service.dart
+lib/services/prompt_service.dart
+lib/services/project_file_service.dart
+lib/services/lm_studio_cli_service.dart
+```
+
+### Phase 3 (Frontend Core)
+```
+lib/features/setup_wizard/setup_wizard_screen.dart
 lib/features/setup_wizard/steps/step_welcome.dart
 lib/features/setup_wizard/steps/step_password.dart
 lib/features/setup_wizard/steps/step_provider.dart
 lib/features/setup_wizard/steps/step_api_key.dart
 lib/features/setup_wizard/steps/step_basic_settings.dart
 lib/features/setup_wizard/steps/step_finish.dart
-lib/features/auth/password_screen.dart               (Umgesetzt in Phase 3.2)
-lib/features/project_manager/project_manager_screen.dart  (Umgesetzt in Phase 3.3)
+lib/features/auth/password_screen.dart
+lib/features/project_manager/project_manager_screen.dart
 lib/features/project_manager/project_detail_screen.dart
 lib/features/project_manager/widgets/project_card.dart
 lib/features/project_manager/widgets/new_project_dialog.dart
 lib/features/project_manager/widgets/open_project_dialog.dart
 lib/providers/project_provider.dart
-lib/features/batch_wizard/batch_wizard_screen.dart   (Umgesetzt in Phase 3.4)
+lib/features/batch_wizard/batch_wizard_screen.dart
 lib/features/batch_wizard/steps/step_items.dart
 lib/features/batch_wizard/steps/step_prompts.dart
 lib/features/batch_wizard/steps/step_chunks.dart
@@ -731,40 +806,36 @@ lib/shared/widgets/progress_bar.dart
 lib/shared/widgets/log_viewer.dart
 lib/shared/widgets/privacy_warning_dialog.dart
 lib/shared/widgets/resume_dialog.dart
-lib/features/batch_execution/batch_execution_screen.dart
+```
+
+### Phase 4 (Integration)
+```
 lib/workers/worker_messages.dart
 lib/workers/batch_execution_worker.dart
 lib/providers/batch_execution_provider.dart
+lib/features/batch_execution/batch_execution_screen.dart
 lib/services/report_generator_service.dart
-lib/features/model_manager/model_manager_screen.dart      (Grundlegend umgesetzt in Phase 4.6)
-lib/features/settings/settings_screen.dart                (Platzhalter -> Phase 5.2)
-test/widget_test.dart
+lib/features/model_manager/model_manager_screen.dart
 ```
 
-### Phase 2 (Core Services)
+### Noch Platzhalter (Phase 5)
 ```
-lib/services/file_parser_service.dart
-lib/services/llm_api_service.dart
-lib/services/json_parser_service.dart
-lib/services/checkpoint_service.dart
-lib/services/token_estimation_service.dart
-lib/services/prompt_service.dart
-lib/services/project_file_service.dart
-lib/services/lm_studio_cli_service.dart
+lib/features/settings/settings_screen.dart                (Platzhalter -> Phase 5.2)
+test/widget_test.dart                                     (Minimal-Test -> Phase 5.4)
 ```
 
 ---
 
 ## Risiken
 
-| Risiko | Mitigation |
-|--------|-----------|
-| DOCX-Parsing-Qualitaet (kein gutes Dart-Paket) | Frueh testen, manuelles ZIP+XML, nur Klartext |
-| PDF-Textextraktion bei komplexen PDFs | Syncfusion nutzen, Warnung bei leeren Ergebnissen |
-| Isolate-Kommunikation Komplexitaet | Klares sealed-class Protokoll, frueh Prototyp bauen |
-| Token-Schaetzung ungenau (chars/4) | Klar als "~Schaetzung" markieren, User warnen |
-| Syncfusion Lizenz | Community-Lizenz pruefen (kostenlos fuer < $1M Umsatz) |
-| freezed Code-Gen nicht aktiv | Datenklassen funktionieren manuell, aber `build_runner` waere sauberer |
+| Risiko | Mitigation | Status |
+|--------|-----------|--------|
+| DOCX-Parsing-Qualitaet | Erweiterter Pure-Dart-OOXML-Parser + Fallback-Logik + Testkorpus | In Arbeit (Phase 5.6.1) |
+| PDF-Textextraktion bei komplexen PDFs | `pdfrx` fuer Digital-PDF + qualitaetsgesteuerter OCR-Fallback (`pdf_ocr`) | Geplant (Phase 5.6.2) |
+| Isolate-Kommunikation Komplexitaet | Klares sealed-class Protokoll mit WorkerMessageCodec | Erledigt (Phase 4) |
+| Token-Schaetzung ungenau (chars/4) | Umstieg auf `tiktoken_tokenizer_gpt4o_o1` + Modell-Mapping + Kalibrierungstests | Geplant (Phase 5.6.3) |
+| Syncfusion Lizenz | Vollstaendige Migration auf MIT/Apache-Stack (`excel`, `pdfrx`, optional `pdf_ocr`) + CI-Lizenz-Guard | Geplant (Phase 5.6.4) |
+| freezed Code-Gen nicht aktiv | ~~Datenklassen funktionieren manuell~~ Code-Gen laeuft, `.freezed.dart`/`.g.dart` vorhanden | Erledigt |
 
 ---
 
@@ -779,4 +850,4 @@ Nach jeder Phase:
 | Phase 2 | `dart analyze`: 0 Fehler, `flutter build windows`: OK |
 | Phase 3 | Setup Wizard komplett durchlaufbar, Projekt anlegen/oeffnen, Batch Wizard konfigurierbar, Passwort-Screen funktioniert |
 | Phase 4 | Kompletter Batch-Durchlauf (10 Items, 1 Prompt, Ollama lokal), Excel-Export pruefbar, Live-Log, Pause/Resume funktioniert |
-| Phase 5 | DE/EN Sprachwechsel, Unit Tests gruen, Windows-Installer laeuft auf sauberem System |
+| Phase 5 | DE/EN Sprachwechsel, Unit Tests gruen, Windows-Installer laeuft auf sauberem System, DOCX/PDF/Token-Hardening nachweisbar, keine Syncfusion-Abhaengigkeit in `pubspec.lock` |

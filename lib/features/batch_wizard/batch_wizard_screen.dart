@@ -26,10 +26,7 @@ import 'steps/step_model.dart';
 import 'steps/step_prompts.dart';
 
 class BatchWizardScreen extends ConsumerStatefulWidget {
-  const BatchWizardScreen({
-    super.key,
-    required this.projectId,
-  });
+  const BatchWizardScreen({super.key, required this.projectId});
 
   final String projectId;
 
@@ -105,18 +102,19 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
 
       final registry = ref.read(modelRegistryProvider);
       await registry.getMergedRegistry();
-      final models = registry
-          .getModelIds()
-          .map(registry.getModelInfo)
-          .whereType<ModelInfo>()
-          .toList()
-        ..sort((a, b) {
-          final providerCmp = a.provider.compareTo(b.provider);
-          if (providerCmp != 0) {
-            return providerCmp;
-          }
-          return a.displayName.compareTo(b.displayName);
-        });
+      final models =
+          registry
+              .getModelIds()
+              .map(registry.getModelInfo)
+              .whereType<ModelInfo>()
+              .toList()
+            ..sort((a, b) {
+              final providerCmp = a.provider.compareTo(b.provider);
+              if (providerCmp != 0) {
+                return providerCmp;
+              }
+              return a.displayName.compareTo(b.displayName);
+            });
 
       final providers = registry.getProviders();
       final providerIsLocal = {
@@ -212,7 +210,8 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
     return !(_providerIsLocal[model.provider] ?? false);
   }
 
-  int get _totalChunks => _items.isEmpty ? 0 : (_items.length / _chunkSize).ceil();
+  int get _totalChunks =>
+      _items.isEmpty ? 0 : (_items.length / _chunkSize).ceil();
 
   int get _totalCalls => _totalChunks * _selectedPrompts.length * _repetitions;
 
@@ -241,6 +240,11 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
       repetitions: _repetitions,
       maxOutputTokens: maxTokens,
       pricing: model.pricing,
+      modelId: model.id,
+      itemSamples: _items
+          .take(50)
+          .map((item) => item.text)
+          .toList(growable: false),
     );
   }
 
@@ -376,10 +380,8 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
     final provider = model?.provider.toUpperCase() ?? 'CLOUD';
     final result = await showDialog<PrivacyWarningResult>(
       context: context,
-      builder: (context) => PrivacyWarningDialog(
-        provider: provider,
-        region: 'Unbekannt',
-      ),
+      builder: (context) =>
+          PrivacyWarningDialog(provider: provider, region: 'Unbekannt'),
     );
 
     if (!mounted) {
@@ -470,7 +472,9 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
             parameters: _parameterValues,
           ),
         ],
-        privacyConfirmed: _requiresPrivacyConfirmation ? _privacyConfirmed : true,
+        privacyConfirmed: _requiresPrivacyConfirmation
+            ? _privacyConfirmed
+            : true,
       );
 
       await db.batchesDao.insertBatch(
@@ -523,22 +527,22 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
       );
     }
 
-    final availablePrompts =
-        _promptMap.keys.where((name) => !_selectedPrompts.contains(name)).toList();
+    final availablePrompts = _promptMap.keys
+        .where((name) => !_selectedPrompts.contains(name))
+        .toList();
     final previewPromptName = _previewPrompt;
-    final previewPromptContent =
-        previewPromptName == null ? '' : (_promptMap[previewPromptName] ?? '');
+    final previewPromptContent = previewPromptName == null
+        ? ''
+        : (_promptMap[previewPromptName] ?? '');
     final promptWarnings = previewPromptContent.isEmpty
         ? null
         : _promptService
-            .validatePrompt(previewPromptContent)
-            .where((w) => w.contains('placeholder'))
-            .join(' ');
+              .validatePrompt(previewPromptContent)
+              .where((w) => w.contains('placeholder'))
+              .join(' ');
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Batch Wizard - ${project.name}'),
-      ),
+      appBar: AppBar(title: Text('Batch Wizard - ${project.name}')),
       body: Stepper(
         currentStep: _step,
         onStepContinue: _isBusy ? null : _continue,
@@ -618,11 +622,13 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
               },
               onRemovePrompt: (prompt) {
                 setState(() {
-                  _selectedPrompts =
-                      _selectedPrompts.where((p) => p != prompt).toList();
+                  _selectedPrompts = _selectedPrompts
+                      .where((p) => p != prompt)
+                      .toList();
                   if (_previewPrompt == prompt) {
-                    _previewPrompt =
-                        _selectedPrompts.isEmpty ? null : _selectedPrompts.first;
+                    _previewPrompt = _selectedPrompts.isEmpty
+                        ? null
+                        : _selectedPrompts.first;
                   }
                 });
               },
@@ -644,8 +650,9 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
                   _previewPrompt = value;
                 });
               },
-              warningText:
-                  promptWarnings == null || promptWarnings.isEmpty ? null : promptWarnings,
+              warningText: promptWarnings == null || promptWarnings.isEmpty
+                  ? null
+                  : promptWarnings,
             ),
           ),
           Step(
@@ -692,10 +699,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
               },
               onParameterChanged: (key, value) {
                 setState(() {
-                  _parameterValues = {
-                    ..._parameterValues,
-                    key: value,
-                  };
+                  _parameterValues = {..._parameterValues, key: value};
                 });
               },
             ),

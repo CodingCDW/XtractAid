@@ -13,9 +13,6 @@ abstract final class AppConstants {
   static const int defaultCheckpointInterval = 10; // API calls
   static const int checkpointRetentionDays = 7;
 
-  // Token estimation
-  static const int charsPerToken = 4;
-
   // Registry
   static const String remoteRegistryUrl =
       'https://raw.githubusercontent.com/xtractaid/model-registry/main/registry.json';

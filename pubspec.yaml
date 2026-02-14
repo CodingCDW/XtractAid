@@ -32,14 +32,16 @@ dependencies:
 
   # Excel
   excel: ^4.0.6
-  syncfusion_flutter_xlsio: ^28.1.33
 
   # PDF
-  syncfusion_flutter_pdf: ^28.1.33
+  pdfrx: ^1.1.22
 
-  # DOCX (manual ZIP + XML parsing)
+  # DOCX parsing
   archive: ^3.6.1
   xml: ^6.5.0
+
+  # Token estimation (GPT-4o/o1 tokenizer)
+  tiktoken_tokenizer_gpt4o_o1: ^1.1.1
 
   # File system
   file_picker: ^8.1.6
