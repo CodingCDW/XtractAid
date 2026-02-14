@@ -1,14 +1,248 @@
+import 'package:drift/drift.dart' show Value;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
-/// Placeholder for the Project Manager (Phase 3).
-class ProjectManagerScreen extends StatelessWidget {
+import '../../core/constants/app_constants.dart';
+import '../../data/database/app_database.dart';
+import '../../providers/database_provider.dart';
+import '../../providers/project_provider.dart';
+import '../../services/project_file_service.dart';
+import 'widgets/new_project_dialog.dart';
+import 'widgets/open_project_dialog.dart';
+import 'widgets/project_card.dart';
+
+class ProjectManagerScreen extends ConsumerStatefulWidget {
   const ProjectManagerScreen({super.key});
 
   @override
+  ConsumerState<ProjectManagerScreen> createState() => _ProjectManagerScreenState();
+}
+
+class _ProjectManagerScreenState extends ConsumerState<ProjectManagerScreen> {
+  final _projectFileService = ProjectFileService();
+  bool _isBusy = false;
+
+  Future<String?> _pickDirectory() {
+    return FilePicker.platform.getDirectoryPath();
+  }
+
+  Future<void> _createProject() async {
+    final dialogResult = await showDialog<NewProjectDialogResult>(
+      context: context,
+      builder: (context) => NewProjectDialog(onPickDirectory: _pickDirectory),
+    );
+
+    if (dialogResult == null) {
+      return;
+    }
+
+    final db = ref.read(databaseProvider);
+    final projectId = const Uuid().v4();
+    final projectPath = p.join(dialogResult.baseDirectory, dialogResult.name);
+
+    setState(() {
+      _isBusy = true;
+    });
+
+    try {
+      await _projectFileService.createProject(
+        path: projectPath,
+        name: dialogResult.name,
+        projectId: projectId,
+      );
+
+      await db.projectsDao.insertProject(
+        ProjectsCompanion(
+          id: Value(projectId),
+          name: Value(dialogResult.name),
+          path: Value(projectPath),
+          lastOpenedAt: Value(DateTime.now()),
+        ),
+      );
+      await db.projectsDao.touchLastOpened(projectId);
+
+      final project = await db.projectsDao.getById(projectId);
+      ref.read(currentProjectProvider.notifier).state = project;
+
+      if (!mounted) {
+        return;
+      }
+      context.go('/projects/$projectId');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Projekt konnte nicht erstellt werden.')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openProjectFolder() async {
+    final dialogResult = await showDialog<OpenProjectDialogResult>(
+      context: context,
+      builder: (context) => OpenProjectDialog(onPickDirectory: _pickDirectory),
+    );
+
+    if (dialogResult == null) {
+      return;
+    }
+
+    setState(() {
+      _isBusy = true;
+    });
+
+    final db = ref.read(databaseProvider);
+
+    try {
+      final validated = await _projectFileService.validateProject(dialogResult.directory);
+      if (validated == null) {
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('Kein gueltiges XtractAid-Projekt')));
+        return;
+      }
+
+      final projectId = (validated['id'] as String?)?.trim().isNotEmpty == true
+          ? validated['id'] as String
+          : const Uuid().v4();
+      final projectName = (validated['name'] as String?)?.trim().isNotEmpty == true
+          ? validated['name'] as String
+          : p.basename(dialogResult.directory);
+
+      final existing = await db.projectsDao.getById(projectId);
+      if (existing == null) {
+        await db.projectsDao.insertProject(
+          ProjectsCompanion(
+            id: Value(projectId),
+            name: Value(projectName),
+            path: Value(dialogResult.directory),
+            lastOpenedAt: Value(DateTime.now()),
+          ),
+        );
+      } else {
+        await db.projectsDao.updateProject(
+          projectId,
+          ProjectsCompanion(
+            name: Value(projectName),
+            path: Value(dialogResult.directory),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+
+      await db.projectsDao.touchLastOpened(projectId);
+      final project = await db.projectsDao.getById(projectId);
+      ref.read(currentProjectProvider.notifier).state = project;
+
+      if (!mounted) {
+        return;
+      }
+      context.go('/projects/$projectId');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Projekt konnte nicht geoeffnet werden.')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openKnownProject(Project project) async {
+    final db = ref.read(databaseProvider);
+    await db.projectsDao.touchLastOpened(project.id);
+    final updated = await db.projectsDao.getById(project.id);
+    ref.read(currentProjectProvider.notifier).state = updated;
+
+    if (!mounted) {
+      return;
+    }
+    context.go('/projects/${project.id}');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final projectsAsync = ref.watch(projectListProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Projects')),
-      body: const Center(child: Text('Project Manager - TODO Phase 3')),
+      appBar: AppBar(
+        title: const Text('Projects'),
+        actions: [
+          TextButton.icon(
+            onPressed: _isBusy ? null : _createProject,
+            icon: const Icon(Icons.add),
+            label: const Text('Neues Projekt'),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            onPressed: _isBusy ? null : _openProjectFolder,
+            icon: const Icon(Icons.folder_open),
+            label: const Text('Projekt oeffnen'),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
+      body: projectsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(child: Text('Fehler: $error')),
+        data: (projects) {
+          final sorted = [...projects]
+            ..sort((a, b) {
+              final aLast = a.lastOpenedAt ?? a.updatedAt;
+              final bLast = b.lastOpenedAt ?? b.updatedAt;
+              return bLast.compareTo(aLast);
+            });
+          final recent = sorted.take(AppConstants.recentProjectsLimit).toList();
+
+          if (recent.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.folder_copy_outlined, size: 56),
+                  SizedBox(height: 12),
+                  Text('Erstellen Sie Ihr erstes Projekt'),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: recent.length,
+            itemBuilder: (context, index) {
+              final project = recent[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: ProjectCard(
+                  project: project,
+                  onOpen: () => _openKnownProject(project),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

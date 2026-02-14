@@ -1,6 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/password_screen.dart';
+import '../../features/batch_wizard/batch_wizard_screen.dart';
+import '../../features/project_manager/project_detail_screen.dart';
 import '../../features/project_manager/project_manager_screen.dart';
 import '../../features/model_manager/model_manager_screen.dart';
 import '../../features/settings/settings_screen.dart';
@@ -26,6 +29,37 @@ abstract final class AppRouter {
             GoRoute(
               path: '/projects',
               builder: (context, state) => const ProjectManagerScreen(),
+              routes: [
+                GoRoute(
+                  path: ':projectId',
+                  builder: (context, state) {
+                    final projectId = state.pathParameters['projectId']!;
+                    return ProjectDetailScreen(projectId: projectId);
+                  },
+                  routes: [
+                    GoRoute(
+                      path: 'batch/new',
+                      builder: (context, state) {
+                        final projectId = state.pathParameters['projectId']!;
+                        return BatchWizardScreen(projectId: projectId);
+                      },
+                    ),
+                    GoRoute(
+                      path: 'batch/:batchId',
+                      builder: (context, state) {
+                        final batchId = state.pathParameters['batchId']!;
+                        return Scaffold(
+                          body: Center(
+                            child: Text(
+                              'Batch Execution - TODO Phase 4 ($batchId)',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
             GoRoute(
               path: '/models',

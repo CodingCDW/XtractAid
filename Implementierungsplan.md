@@ -7,7 +7,7 @@
 | Phase 0: Spec-Updates | ERLEDIGT | Alle 3 Spec-Dokumente auf Flutter/Dart aktualisiert |
 | Phase 1: Foundation | ERLEDIGT | Projekt, DB, Models, Encryption, Registry, App-Shell, Navigation. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
 | Phase 2: Core Services | ERLEDIGT | 8 Services implementiert. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
-| Phase 3: Frontend Core | NAECHSTER SCHRITT | Setup Wizard, Auth Screen, Project Manager, Batch Wizard, Shared Widgets |
+| Phase 3: Frontend Core | IN ARBEIT | 3.1-3.4 umgesetzt (Setup, Auth, Projects, Batch Wizard), 3.5 Shared Widgets offen |
 | Phase 4: Integration | OFFEN | Batch Worker Isolate, Execution Provider/Screen, Report-Generierung, Model Manager UI |
 | Phase 5: Polish | OFFEN | Lokalisierung, Fehlerbehandlung, Testing, Distribution |
 
@@ -180,13 +180,10 @@ Nach erfolgreicher Passwort-Eingabe navigiert `/auth` zu `/projects`.
 
 ### Platzhalter-Screens
 
-Folgende Screens existieren als Platzhalter und muessen in Phase 3/4/5 durch echte Implementierungen ersetzt werden:
+Folgende Screens sind aktuell noch Platzhalter und muessen in Phase 4/5 durch echte Implementierungen ersetzt werden:
 
 | Screen | Datei | Phase |
 |--------|-------|-------|
-| `SetupWizardScreen` | `lib/features/setup_wizard/setup_wizard_screen.dart` | Phase 3.1 |
-| `PasswordScreen` | `lib/features/auth/password_screen.dart` | Phase 3.2 |
-| `ProjectManagerScreen` | `lib/features/project_manager/project_manager_screen.dart` | Phase 3.3 |
 | `ModelManagerScreen` | `lib/features/model_manager/model_manager_screen.dart` | Phase 4.5 |
 | `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Phase 5 |
 
@@ -236,13 +233,13 @@ Die vollstaendige Anforderungsspezifikation ist in `specs/XtractAid_PRD_Final.md
 
 ---
 
-## Phase 3: Frontend Core -- NAECHSTER SCHRITT
+## Phase 3: Frontend Core -- IN ARBEIT (NAECHSTER SCHRITT: 3.5 Shared Widgets)
 
 ### 3.1 Setup Wizard
 
 **PRD-Referenz:** F-SETUP-01, F-SETUP-02, F-SETUP-03
 
-**Zu ersetzen:** `lib/features/setup_wizard/setup_wizard_screen.dart` (aktuell Platzhalter: "Setup Wizard - TODO Phase 3")
+**Status:** Umgesetzt in `lib/features/setup_wizard/setup_wizard_screen.dart` + `lib/features/setup_wizard/steps/*`
 
 **Struktur:** Einen `StatefulWidget` oder `ConsumerStatefulWidget` mit `Stepper` oder eigenem `PageView`-basiertem Wizard erstellen. Dazu 6 Step-Widgets als eigene Dateien.
 
@@ -310,7 +307,7 @@ lib/features/setup_wizard/
 
 **PRD-Referenz:** F-SETUP-02
 
-**Zu ersetzen:** `lib/features/auth/password_screen.dart` (aktuell funktionaler Platzhalter, navigiert ohne Passwort-Check)
+**Status:** Umgesetzt in `lib/features/auth/password_screen.dart` (Passwort-Check + Reset-Flow)
 
 **Datei:** `lib/features/auth/password_screen.dart` -- als `ConsumerStatefulWidget` umschreiben.
 
@@ -330,7 +327,7 @@ lib/features/setup_wizard/
 
 **PRD-Referenz:** F-PROJ-01, F-PROJ-02, F-PROJ-03
 
-**Zu ersetzen:** `lib/features/project_manager/project_manager_screen.dart` (aktuell: "Project Manager - TODO Phase 3")
+**Status:** Umgesetzt in `lib/features/project_manager/project_manager_screen.dart` + `lib/features/project_manager/project_detail_screen.dart` + `lib/features/project_manager/widgets/*`
 
 **Neue Dateien:**
 ```
@@ -389,6 +386,8 @@ lib/providers/project_provider.dart
 ### 3.4 Batch Wizard (5 Schritte)
 
 **PRD-Referenz:** F-BATCH-01, F-BATCH-02, F-BATCH-03, F-PRIVACY-01, Abschnitt 7.2
+
+**Status:** Umgesetzt in `lib/features/batch_wizard/batch_wizard_screen.dart` + `lib/features/batch_wizard/steps/*`
 
 **Neue Dateien:**
 ```
@@ -690,9 +689,26 @@ lib/providers/database_provider.dart
 lib/providers/encryption_provider.dart
 lib/providers/model_registry_provider.dart
 lib/providers/settings_provider.dart
-lib/features/setup_wizard/setup_wizard_screen.dart  (Platzhalter -> Phase 3.1)
-lib/features/auth/password_screen.dart               (Platzhalter -> Phase 3.2)
-lib/features/project_manager/project_manager_screen.dart  (Platzhalter -> Phase 3.3)
+lib/features/setup_wizard/setup_wizard_screen.dart  (Umgesetzt in Phase 3.1)
+lib/features/setup_wizard/steps/step_welcome.dart
+lib/features/setup_wizard/steps/step_password.dart
+lib/features/setup_wizard/steps/step_provider.dart
+lib/features/setup_wizard/steps/step_api_key.dart
+lib/features/setup_wizard/steps/step_basic_settings.dart
+lib/features/setup_wizard/steps/step_finish.dart
+lib/features/auth/password_screen.dart               (Umgesetzt in Phase 3.2)
+lib/features/project_manager/project_manager_screen.dart  (Umgesetzt in Phase 3.3)
+lib/features/project_manager/project_detail_screen.dart
+lib/features/project_manager/widgets/project_card.dart
+lib/features/project_manager/widgets/new_project_dialog.dart
+lib/features/project_manager/widgets/open_project_dialog.dart
+lib/providers/project_provider.dart
+lib/features/batch_wizard/batch_wizard_screen.dart   (Umgesetzt in Phase 3.4)
+lib/features/batch_wizard/steps/step_items.dart
+lib/features/batch_wizard/steps/step_prompts.dart
+lib/features/batch_wizard/steps/step_chunks.dart
+lib/features/batch_wizard/steps/step_model.dart
+lib/features/batch_wizard/steps/step_confirm.dart
 lib/features/model_manager/model_manager_screen.dart      (Platzhalter -> Phase 4.6)
 lib/features/settings/settings_screen.dart                (Platzhalter -> Phase 5.2)
 test/widget_test.dart
