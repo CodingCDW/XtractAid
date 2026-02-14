@@ -1,8 +1,8 @@
 /// OCR abstraction for scanned or low-quality PDFs.
 ///
-/// Default implementation is intentionally a no-op to avoid extra native
-/// dependencies in standard builds. A platform-specific implementation can be
-/// wired in later (e.g. pdf_ocr) when OCR fallback is enabled.
+/// Default implementation stays dependency-free so standard builds remain
+/// stable. Wire a concrete OCR backend in environments where native OCR
+/// toolchains are available.
 class PdfOcrService {
   const PdfOcrService();
 
