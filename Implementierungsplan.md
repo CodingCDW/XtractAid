@@ -7,8 +7,8 @@
 | Phase 0: Spec-Updates | ERLEDIGT | Alle 3 Spec-Dokumente auf Flutter/Dart aktualisiert |
 | Phase 1: Foundation | ERLEDIGT | Projekt, DB, Models, Encryption, Registry, App-Shell, Navigation. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
 | Phase 2: Core Services | ERLEDIGT | 8 Services implementiert. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
-| Phase 3: Frontend Core | IN ARBEIT | 3.1-3.4 umgesetzt (Setup, Auth, Projects, Batch Wizard), 3.5 Shared Widgets offen |
-| Phase 4: Integration | OFFEN | Batch Worker Isolate, Execution Provider/Screen, Report-Generierung, Model Manager UI |
+| Phase 3: Frontend Core | ERLEDIGT | 3.1-3.5 umgesetzt (Setup, Auth, Projects, Batch Wizard, Shared Widgets) |
+| Phase 4: Integration | IN ARBEIT | 4.1-4.6 grundlegend implementiert; Feinschliff/Vertiefung fuer vollstaendige Abnahmekriterien offen |
 | Phase 5: Polish | OFFEN | Lokalisierung, Fehlerbehandlung, Testing, Distribution |
 
 ---
@@ -233,7 +233,7 @@ Die vollstaendige Anforderungsspezifikation ist in `specs/XtractAid_PRD_Final.md
 
 ---
 
-## Phase 3: Frontend Core -- IN ARBEIT (NAECHSTER SCHRITT: 3.5 Shared Widgets)
+## Phase 3: Frontend Core -- ERLEDIGT
 
 ### 3.1 Setup Wizard
 
@@ -470,6 +470,8 @@ lib/features/batch_wizard/
 
 **Verzeichnis:** `lib/shared/widgets/`
 
+**Status:** Umgesetzt in `lib/shared/widgets/*` (inkl. Nutzung in Batch Wizard Schritten)
+
 Diese Widgets werden von mehreren Screens benutzt. Sie sollten alle **stateless** oder **Consumer-Widgets** sein und ihre Daten ueber Parameter erhalten.
 
 | Widget | Datei | Beschreibung | Benutzt von |
@@ -490,6 +492,8 @@ Diese Widgets werden von mehreren Screens benutzt. Sie sollten alle **stateless*
 ## Phase 4: Integration
 
 ### 4.1 Worker Messages (Sealed Classes)
+
+**Status:** Umgesetzt in `lib/workers/worker_messages.dart`
 
 **Neue Datei:** `lib/workers/worker_messages.dart`
 
@@ -520,6 +524,8 @@ class BatchErrorEvent extends WorkerEvent { final String message; final String? 
 ```
 
 ### 4.2 Batch Execution Worker (Isolate)
+
+**Status:** Grundgeruest umgesetzt in `lib/workers/batch_execution_worker.dart` (Start/Pause/Resume/Stop, Event-Emission, API-Loop, Checkpoints)
 
 **Neue Datei:** `lib/workers/batch_execution_worker.dart`
 
@@ -552,6 +558,8 @@ Dies ist das Herzstueck der App. Ein langlebiger Isolate, der:
 
 ### 4.3 Batch Execution Provider (Riverpod)
 
+**Status:** Grundgeruest umgesetzt in `lib/providers/batch_execution_provider.dart`
+
 **Neue Datei:** `lib/providers/batch_execution_provider.dart`
 
 - `StateNotifier<BatchExecutionState>` mit States: `idle`, `starting`, `running(progress, logs, stats)`, `paused`, `completed(stats, results)`, `failed(error)`
@@ -560,6 +568,8 @@ Dies ist das Herzstueck der App. Ein langlebiger Isolate, der:
 - Bei App-Schliessung: StopBatchCommand senden
 
 ### 4.4 Batch Execution Screen
+
+**Status:** Grundgeruest umgesetzt in `lib/features/batch_execution/batch_execution_screen.dart` und Router an `/projects/:projectId/batch/:batchId` angebunden
 
 **Neue Dateien:**
 ```
@@ -579,6 +589,8 @@ lib/features/batch_execution/
 **Resume-Logik:** Beim Oeffnen des Screens pruefen: `checkpointService.hasCheckpoint(projectPath, batchId)` -> Falls ja: `ResumeDialog` anzeigen -> Bei "Fortsetzen": Checkpoint laden und an Worker uebergeben.
 
 ### 4.5 Report-Generierung
+
+**Status:** Grundlegend umgesetzt in `lib/services/report_generator_service.dart` und im Execution-Screen angebunden (Excel + Markdown + HTML)
 
 **Neue Datei:** `lib/services/report_generator_service.dart`
 
@@ -607,6 +619,8 @@ lib/features/batch_execution/
 ### 4.6 Model Manager UI
 
 **Zu ersetzen:** `lib/features/model_manager/model_manager_screen.dart` (aktuell Platzhalter)
+
+**Status:** Grundlegend umgesetzt in `lib/features/model_manager/model_manager_screen.dart` (Tabs: Registry, Custom, Discovered)
 
 **Layout:** `DefaultTabController` mit 3 Tabs:
 
@@ -709,6 +723,16 @@ lib/features/batch_wizard/steps/step_prompts.dart
 lib/features/batch_wizard/steps/step_chunks.dart
 lib/features/batch_wizard/steps/step_model.dart
 lib/features/batch_wizard/steps/step_confirm.dart
+lib/shared/widgets/file_selector.dart
+lib/shared/widgets/prompt_viewer.dart
+lib/shared/widgets/prompt_selector.dart
+lib/shared/widgets/model_selector.dart
+lib/shared/widgets/model_configurator.dart
+lib/shared/widgets/cost_estimate_card.dart
+lib/shared/widgets/progress_bar.dart
+lib/shared/widgets/log_viewer.dart
+lib/shared/widgets/privacy_warning_dialog.dart
+lib/shared/widgets/resume_dialog.dart
 lib/features/model_manager/model_manager_screen.dart      (Platzhalter -> Phase 4.6)
 lib/features/settings/settings_screen.dart                (Platzhalter -> Phase 5.2)
 test/widget_test.dart

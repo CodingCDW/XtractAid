@@ -18,6 +18,7 @@ import '../../services/file_parser_service.dart';
 import '../../services/project_file_service.dart';
 import '../../services/prompt_service.dart';
 import '../../services/token_estimation_service.dart';
+import '../../shared/widgets/privacy_warning_dialog.dart';
 import 'steps/step_chunks.dart';
 import 'steps/step_confirm.dart';
 import 'steps/step_items.dart';
@@ -69,6 +70,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
   Map<String, dynamic> _parameterValues = const {};
 
   bool _privacyConfirmed = false;
+  bool _suppressPrivacyWarning = false;
 
   @override
   void initState() {
@@ -353,6 +355,44 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
     }
 
     await _startBatch();
+  }
+
+  Future<void> _handlePrivacyChanged(bool value) async {
+    if (!value) {
+      setState(() {
+        _privacyConfirmed = false;
+      });
+      return;
+    }
+
+    if (!_requiresPrivacyConfirmation || _suppressPrivacyWarning) {
+      setState(() {
+        _privacyConfirmed = true;
+      });
+      return;
+    }
+
+    final model = _selectedModel;
+    final provider = model?.provider.toUpperCase() ?? 'CLOUD';
+    final result = await showDialog<PrivacyWarningResult>(
+      context: context,
+      builder: (context) => PrivacyWarningDialog(
+        provider: provider,
+        region: 'Unbekannt',
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    final accepted = result?.accepted ?? false;
+    setState(() {
+      _privacyConfirmed = accepted;
+      if ((result?.doNotShowAgain ?? false) && accepted) {
+        _suppressPrivacyWarning = true;
+      }
+    });
   }
 
   bool _validateStep(int step) {
@@ -677,9 +717,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
               requirePrivacyConfirmation: _requiresPrivacyConfirmation,
               privacyConfirmed: _privacyConfirmed,
               onPrivacyChanged: (value) {
-                setState(() {
-                  _privacyConfirmed = value ?? false;
-                });
+                _handlePrivacyChanged(value ?? false);
               },
             ),
           ),

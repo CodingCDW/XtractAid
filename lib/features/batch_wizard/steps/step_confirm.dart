@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/cost_estimate.dart';
+import '../../../shared/widgets/cost_estimate_card.dart';
 
 class StepConfirm extends StatelessWidget {
   const StepConfirm({
@@ -43,23 +44,7 @@ class StepConfirm extends StatelessWidget {
         Text('Gesamt API-Calls: $totalCalls'),
         Text('Model: $modelLabel'),
         const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Kosten-Vorschau'),
-                const SizedBox(height: 6),
-                Text('Input-Tokens: ${costEstimate.estimatedInputTokens}'),
-                Text('Output-Tokens: ${costEstimate.estimatedOutputTokens}'),
-                Text('API-Calls: ${costEstimate.estimatedApiCalls}'),
-                Text('Gesamt: ${costEstimate.estimatedCostUsd.toStringAsFixed(4)} ${costEstimate.currency}'),
-                const Text('Schaetzung basierend auf ~4 Zeichen/Token.'),
-              ],
-            ),
-          ),
-        ),
+        CostEstimateCard(estimate: costEstimate),
         if (requirePrivacyConfirmation)
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,

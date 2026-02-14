@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/model_info.dart';
+import '../../../shared/widgets/model_configurator.dart';
+import '../../../shared/widgets/model_selector.dart';
 
 class StepModel extends StatelessWidget {
   const StepModel({
@@ -27,20 +29,9 @@ class StepModel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        DropdownButtonFormField<String>(
-          initialValue: selectedModelId,
-          decoration: const InputDecoration(
-            labelText: 'Model',
-            border: OutlineInputBorder(),
-          ),
-          items: models
-              .map(
-                (model) => DropdownMenuItem<String>(
-                  value: model.id,
-                  child: Text('${model.provider.toUpperCase()} - ${model.displayName}'),
-                ),
-              )
-              .toList(),
+        ModelSelector(
+          models: models,
+          selectedModelId: selectedModelId,
           onChanged: onModelChanged,
         ),
         const SizedBox(height: 12),
@@ -49,79 +40,12 @@ class StepModel extends StatelessWidget {
             'Kontext: ${selectedModelInfo!.contextWindow} | Preis (Input/Output je 1M): ${selectedModelInfo!.pricing.inputPerMillion}/${selectedModelInfo!.pricing.outputPerMillion} ${selectedModelInfo!.pricing.currency}',
           ),
         const SizedBox(height: 12),
-        ...parameters.entries
-            .where((entry) => entry.value.supported)
-            .map((entry) => _ParameterField(
-                  name: entry.key,
-                  parameter: entry.value,
-                  value: parameterValues[entry.key],
-                  onChanged: (value) => onParameterChanged(entry.key, value),
-                )),
-      ],
-    );
-  }
-}
-
-class _ParameterField extends StatelessWidget {
-  const _ParameterField({
-    required this.name,
-    required this.parameter,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String name;
-  final ModelParameter parameter;
-  final dynamic value;
-  final ValueChanged<dynamic> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final type = parameter.type ?? 'float';
-
-    if (type == 'enum') {
-      final values = parameter.values ?? const <String>[];
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: DropdownButtonFormField<String>(
-          initialValue: value?.toString(),
-          decoration: InputDecoration(
-            labelText: name,
-            border: const OutlineInputBorder(),
-          ),
-          items: values
-              .map((v) => DropdownMenuItem<String>(value: v, child: Text(v)))
-              .toList(),
-          onChanged: onChanged,
+        ModelConfigurator(
+          parameters: parameters,
+          parameterValues: parameterValues,
+          onParameterChanged: onParameterChanged,
         ),
-      );
-    }
-
-    final min = parameter.min ?? (type == 'integer' ? 1 : 0);
-    final max = parameter.max ?? (type == 'integer' ? 100 : 2);
-    final current = (value is num) ? value.toDouble() : (parameter.defaultValue is num ? (parameter.defaultValue as num).toDouble() : min);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('$name: ${type == 'integer' ? current.round() : current.toStringAsFixed(2)}'),
-          Slider(
-            value: current.clamp(min, max),
-            min: min,
-            max: max,
-            divisions: type == 'integer' ? (max - min).toInt().clamp(1, 5000) : 100,
-            onChanged: (newValue) {
-              if (type == 'integer') {
-                onChanged(newValue.round());
-              } else {
-                onChanged(double.parse(newValue.toStringAsFixed(2)));
-              }
-            },
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

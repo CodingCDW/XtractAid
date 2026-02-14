@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/item.dart';
+import '../../../shared/widgets/file_selector.dart';
 
 class StepItems extends StatelessWidget {
   const StepItems({
@@ -60,31 +61,14 @@ class StepItems extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                inputPath ?? 'Keine Quelle gewaehlt',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton(
-              onPressed: inputType == 'excel' ? onPickFile : onPickFolder,
-              child: Text(inputType == 'excel' ? 'Datei waehlen' : 'Ordner waehlen'),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: isParsing ? null : onParse,
-              child: isParsing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Laden'),
-            ),
-          ],
+        FileSelector(
+          label: inputType == 'excel' ? 'Dateiquelle' : 'Ordnerquelle',
+          path: inputPath,
+          onPick: inputType == 'excel' ? onPickFile : onPickFolder,
+          pickButtonLabel: inputType == 'excel' ? 'Datei waehlen' : 'Ordner waehlen',
+          onLoad: onParse,
+          loadButtonLabel: 'Laden',
+          isLoading: isParsing,
         ),
         if (inputType == 'excel') ...[
           const SizedBox(height: 12),
