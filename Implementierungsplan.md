@@ -9,7 +9,7 @@
 | Phase 2: Core Services | ERLEDIGT | 8 Services implementiert. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
 | Phase 3: Frontend Core | ERLEDIGT | 3.1-3.5 umgesetzt (Setup, Auth, Projects, Batch Wizard, Shared Widgets) |
 | Phase 4: Integration | IN ARBEIT | 4.1-4.6 grundlegend implementiert; Feinschliff/Vertiefung fuer vollstaendige Abnahmekriterien offen |
-| Phase 5: Polish | OFFEN | Lokalisierung, Fehlerbehandlung, Testing, Distribution |
+| Phase 5: Polish | NAECHSTER SCHRITT | Lokalisierung, Fehlerbehandlung, Testing, Distribution |
 
 ---
 
@@ -618,8 +618,6 @@ lib/features/batch_execution/
 
 ### 4.6 Model Manager UI
 
-**Zu ersetzen:** `lib/features/model_manager/model_manager_screen.dart` (aktuell Platzhalter)
-
 **Status:** Grundlegend umgesetzt in `lib/features/model_manager/model_manager_screen.dart` (Tabs: Registry, Custom, Discovered)
 
 **Layout:** `DefaultTabController` mit 3 Tabs:
@@ -733,7 +731,12 @@ lib/shared/widgets/progress_bar.dart
 lib/shared/widgets/log_viewer.dart
 lib/shared/widgets/privacy_warning_dialog.dart
 lib/shared/widgets/resume_dialog.dart
-lib/features/model_manager/model_manager_screen.dart      (Platzhalter -> Phase 4.6)
+lib/features/batch_execution/batch_execution_screen.dart
+lib/workers/worker_messages.dart
+lib/workers/batch_execution_worker.dart
+lib/providers/batch_execution_provider.dart
+lib/services/report_generator_service.dart
+lib/features/model_manager/model_manager_screen.dart      (Grundlegend umgesetzt in Phase 4.6)
 lib/features/settings/settings_screen.dart                (Platzhalter -> Phase 5.2)
 test/widget_test.dart
 ```
