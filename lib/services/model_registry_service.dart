@@ -1,0 +1,230 @@
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/services.dart' show rootBundle;
+
+import '../core/constants/app_constants.dart';
+import '../data/database/app_database.dart';
+import '../data/models/model_info.dart';
+import '../data/models/provider_config.dart';
+
+/// Manages model information from bundled + remote + user sources.
+///
+/// Priority: Bundled < Remote < User Overrides
+class ModelRegistryService {
+  final AppDatabase _db;
+  final Dio _dio;
+
+  Map<String, dynamic> _cache = {};
+  DateTime? _cacheUpdated;
+
+  ModelRegistryService({required AppDatabase db, Dio? dio})
+      : _db = db,
+        _dio = dio ?? Dio();
+
+  /// Whether the registry has been loaded.
+  bool get isLoaded => _cache.isNotEmpty;
+
+  /// Load the registry bundled with the app.
+  Future<Map<String, dynamic>> getBundledRegistry() async {
+    final jsonString =
+        await rootBundle.loadString('assets/model_registry.json');
+    return json.decode(jsonString) as Map<String, dynamic>;
+  }
+
+  /// Fetch the latest registry from GitHub.
+  Future<Map<String, dynamic>?> fetchRemoteRegistry() async {
+    try {
+      final response = await _dio.get(
+        AppConstants.remoteRegistryUrl,
+        options: Options(receiveTimeout: const Duration(seconds: 10)),
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get user-defined model configurations from local DB.
+  Future<Map<String, Map<String, dynamic>>> getUserOverrides() async {
+    final rows = await _db.modelsDao.getAllUserOverrides();
+    return {
+      for (final r in rows) r.modelId: json.decode(r.overrideJson) as Map<String, dynamic>,
+    };
+  }
+
+  /// Get combined registry: bundled + remote + user overrides.
+  Future<Map<String, dynamic>> getMergedRegistry({
+    bool forceRefresh = false,
+  }) async {
+    // Check cache
+    if (!forceRefresh && _cache.isNotEmpty && _cacheUpdated != null) {
+      if (DateTime.now().difference(_cacheUpdated!) <
+          AppConstants.registryCacheDuration) {
+        return _cache;
+      }
+    }
+
+    // Start with bundled
+    final registry = await getBundledRegistry();
+
+    // Try to get remote updates
+    final remote = await fetchRemoteRegistry();
+    if (remote != null) {
+      final remoteVersion = remote['version'] as String? ?? '';
+      final localVersion = registry['version'] as String? ?? '';
+      if (remoteVersion.compareTo(localVersion) > 0) {
+        (registry['providers'] as Map)
+            .addAll(remote['providers'] as Map? ?? {});
+        (registry['models'] as Map).addAll(remote['models'] as Map? ?? {});
+        registry['version'] = remote['version'];
+        registry['updated_at'] = remote['updated_at'];
+      }
+    }
+
+    // Apply user overrides (highest priority)
+    final userOverrides = await getUserOverrides();
+    final models = registry['models'] as Map<String, dynamic>;
+    for (final entry in userOverrides.entries) {
+      if (models.containsKey(entry.key)) {
+        (models[entry.key] as Map).addAll(entry.value);
+      } else {
+        models[entry.key] = entry.value;
+      }
+    }
+
+    _cache = registry;
+    _cacheUpdated = DateTime.now();
+    return registry;
+  }
+
+  /// Get all provider configurations.
+  Map<String, ProviderConfig> getProviders() {
+    final providers = _cache['providers'] as Map<String, dynamic>? ?? {};
+    return providers.map((key, value) {
+      final v = value as Map<String, dynamic>;
+      return MapEntry(
+        key,
+        ProviderConfig(
+          id: key,
+          name: v['name'] as String? ?? key,
+          type: key,
+          baseUrl: v['base_url'] as String? ?? '',
+          authType: v['auth_type'] as String? ?? 'bearer',
+          modelsEndpoint: v['models_endpoint'] as String?,
+          isLocal: v['is_local'] as bool? ?? false,
+        ),
+      );
+    });
+  }
+
+  /// Get all model IDs.
+  List<String> getModelIds() {
+    final models = _cache['models'] as Map<String, dynamic>? ?? {};
+    return models.keys.toList();
+  }
+
+  /// Get models grouped by provider.
+  Map<String, List<String>> getModelsByProvider() {
+    final models = _cache['models'] as Map<String, dynamic>? ?? {};
+    final result = <String, List<String>>{};
+    for (final entry in models.entries) {
+      final provider =
+          (entry.value as Map<String, dynamic>)['provider'] as String? ?? '';
+      result.putIfAbsent(provider, () => []).add(entry.key);
+    }
+    return result;
+  }
+
+  /// Get full info for a specific model as raw map.
+  Map<String, dynamic>? getModelInfoRaw(String modelId) {
+    final models = _cache['models'] as Map<String, dynamic>?;
+    return models?[modelId] as Map<String, dynamic>?;
+  }
+
+  /// Get typed ModelInfo for a specific model.
+  ModelInfo? getModelInfo(String modelId) {
+    final raw = getModelInfoRaw(modelId);
+    if (raw == null) return null;
+
+    final pricing = raw['pricing'] as Map<String, dynamic>? ?? {};
+    final capabilities = raw['capabilities'] as Map<String, dynamic>? ?? {};
+    final params = raw['parameters'] as Map<String, dynamic>? ?? {};
+
+    return ModelInfo(
+      id: modelId,
+      provider: raw['provider'] as String? ?? '',
+      displayName: raw['display_name'] as String? ?? modelId,
+      description: raw['description'] as String? ?? '',
+      contextWindow: raw['context_window'] as int? ?? 0,
+      maxOutputTokens: raw['max_output_tokens'] as int? ?? 4096,
+      pricing: ModelPricing(
+        inputPerMillion: (pricing['input_per_million'] as num?)?.toDouble() ?? 0,
+        outputPerMillion:
+            (pricing['output_per_million'] as num?)?.toDouble() ?? 0,
+        currency: pricing['currency'] as String? ?? 'USD',
+      ),
+      capabilities: ModelCapabilities(
+        chat: capabilities['chat'] as bool? ?? true,
+        vision: capabilities['vision'] as bool? ?? false,
+        functionCalling: capabilities['function_calling'] as bool? ?? false,
+        jsonMode: capabilities['json_mode'] as bool? ?? false,
+        streaming: capabilities['streaming'] as bool? ?? true,
+        reasoning: capabilities['reasoning'] as bool? ?? false,
+        extendedThinking: capabilities['extended_thinking'] as bool? ?? false,
+      ),
+      parameters: params.map((key, value) {
+        final p = value as Map<String, dynamic>;
+        return MapEntry(
+          key,
+          ModelParameter(
+            supported: p['supported'] as bool? ?? false,
+            type: p['type'] as String?,
+            min: (p['min'] as num?)?.toDouble(),
+            max: (p['max'] as num?)?.toDouble(),
+            defaultValue: p['default'],
+            values: (p['values'] as List?)?.cast<String>(),
+            apiName: p['api_name'] as String?,
+          ),
+        );
+      }),
+      notes: raw['notes'] as String?,
+      status: raw['status'] as String? ?? 'active',
+    );
+  }
+
+  /// Get parameter definitions for a model.
+  Map<String, ModelParameter> getModelParameters(String modelId) {
+    final info = getModelInfo(modelId);
+    if (info == null) {
+      return {
+        'temperature': const ModelParameter(
+          supported: true,
+          type: 'float',
+          min: 0.0,
+          max: 2.0,
+          defaultValue: 0.7,
+        ),
+        'max_tokens': const ModelParameter(
+          supported: true,
+          type: 'integer',
+          min: 1,
+          max: 32768,
+          defaultValue: 4096,
+        ),
+      };
+    }
+    return info.parameters;
+  }
+
+  /// Get pricing info for a model.
+  ModelPricing getModelPricing(String modelId) {
+    final info = getModelInfo(modelId);
+    return info?.pricing ?? const ModelPricing();
+  }
+
+  /// Get default parameters for local models (Ollama, LM Studio).
+  Map<String, dynamic> getLocalModelDefaults() {
+    return _cache['local_model_defaults'] as Map<String, dynamic>? ?? {};
+  }
+}

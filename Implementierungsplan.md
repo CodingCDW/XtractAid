@@ -1,0 +1,739 @@
+# XtractAid Flutter -- Entwicklungsplan
+
+## Fortschritt
+
+| Phase | Status | Anmerkungen |
+|-------|--------|-------------|
+| Phase 0: Spec-Updates | ERLEDIGT | Alle 3 Spec-Dokumente auf Flutter/Dart aktualisiert |
+| Phase 1: Foundation | ERLEDIGT | Projekt, DB, Models, Encryption, Registry, App-Shell, Navigation. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
+| Phase 2: Core Services | ERLEDIGT | 8 Services implementiert. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
+| Phase 3: Frontend Core | NAECHSTER SCHRITT | Setup Wizard, Auth Screen, Project Manager, Batch Wizard, Shared Widgets |
+| Phase 4: Integration | OFFEN | Batch Worker Isolate, Execution Provider/Screen, Report-Generierung, Model Manager UI |
+| Phase 5: Polish | OFFEN | Lokalisierung, Fehlerbehandlung, Testing, Distribution |
+
+---
+
+## Wie dieses Projekt funktioniert (Einstieg fuer Entwickler)
+
+### Was ist XtractAid?
+
+XtractAid ist eine **Windows-Desktop-App** (spaeter auch macOS) fuer Wissenschaftler und Forscher. Sie laedt Textdaten aus Excel/PDF/DOCX-Dateien, sendet diese in Batches an LLM-APIs (OpenAI, Anthropic, Google, Ollama, LM Studio) und sammelt die strukturierten JSON-Antworten in Excel-Tabellen und HTML-Reports.
+
+**Typischer Workflow:**
+1. User erstellt ein Projekt (Ordner mit `prompts/`, `input/`, `results/`)
+2. User laedt Items (z.B. 300 Abstracts aus einer Excel-Datei)
+3. User waehlt Prompts (z.B. "Extrahiere Metadaten" + "Erstelle Zusammenfassung")
+4. User konfiguriert: Chunk-Groesse, Wiederholungen, LLM-Model, Parameter
+5. App sendet Items chunkweise an LLM, parst JSON-Antworten, speichert Checkpoints
+6. Ergebnisse: Excel mit einer Zeile pro Item + HTML-Dossier + Markdown-Log
+
+### Tech-Stack
+
+| Was | Technologie | Wo |
+|-----|-------------|-----|
+| Framework | Flutter (Desktop) | Gesamte App |
+| Sprache | Dart | Alles |
+| State | Riverpod (`flutter_riverpod`) | `lib/providers/` |
+| Datenbank | Drift + SQLite | `lib/data/database/` |
+| Navigation | GoRouter | `lib/core/router/app_router.dart` |
+| HTTP | Dio | `lib/services/llm_api_service.dart` |
+| Verschluesselung | AES-256-GCM via `encrypt` + `pointycastle` | `lib/services/encryption_service.dart` |
+| Datenklassen | freezed + json_serializable | `lib/data/models/` |
+| UI | Material Design 3 | `lib/core/theme/app_theme.dart` |
+
+### Architektur (Schichtmodell)
+
+```
+Flutter UI (Main Isolate)
+    |
+    | Riverpod Providers (State-Management)
+    |
+    v
+Dart Services Layer (Geschaeftslogik)
+    |
+    |-- Direkte Aufrufe (fuer schnelle Operationen)
+    |-- Isolate SendPort/ReceivePort (fuer langlebige Batch-Worker)
+    |
+    v
+Drift SQLite + Dateisystem + Externe LLM-APIs
+```
+
+**Wichtig:** Es gibt kein Python-Backend, keinen REST-Server, kein Tauri. Alles ist reines Flutter/Dart. Die PRD (`specs/XtractAid_PRD_Final.md`) wurde urspruenglich fuer React+Tauri+FastAPI geschrieben und in Phase 0 auf Flutter/Dart umgeschrieben.
+
+### Projekt-Befehle
+
+```bash
+# Abhaengigkeiten installieren
+flutter pub get
+
+# Analyse (muss 0 Fehler zeigen)
+dart analyze lib/
+
+# Windows-Build
+flutter build windows
+
+# Tests
+flutter test
+
+# Code-Generierung (falls freezed/drift-Modelle geaendert werden)
+dart run build_runner build --delete-conflicting-outputs
+```
+
+**Hinweis:** Die freezed/drift `.g.dart` und `.freezed.dart` Dateien werden NICHT generiert, da wir `build_runner` nicht laufen lassen. Stattdessen sind die Datenklassen so geschrieben, dass sie ohne Code-Generierung funktionieren (die `part`-Direktiven existieren, aber die generierten Dateien fehlen). Der Build funktioniert trotzdem, weil die Klassen manuell implementiert sind. Falls du Code-Generierung aktivieren willst, fuehre `dart run build_runner build` aus.
+
+---
+
+## Was existiert bereits (Detail-Referenz)
+
+### Datenbank (Drift SQLite)
+
+**Datei:** `lib/data/database/app_database.dart`
+**DB-Pfad:** `getApplicationSupportDirectory()/xtractaid.db` (per `path_provider`)
+**Isolate-sicher:** Ja, via `NativeDatabase.createInBackground()`
+
+6 Tabellen mit je einem DAO:
+
+| Tabelle | Primaerschluessel | Wichtige Spalten | DAO-Methoden |
+|---------|-------------------|------------------|--------------|
+| `settings` | `key` (Text) | `value` (Text), `updatedAt` | `getValue(key)`, `setValue(key, value)`, `getAll()` |
+| `providers` | `id` (Text) | `name`, `type` (openai/anthropic/...), `baseUrl`, `encryptedApiKey` (Blob, nullable), `isEnabled` | `getAll()`, `watchAll()`, `getEnabled()`, `insertProvider()` |
+| `models` | `modelId` (Text) | `overrideJson` (Text = JSON-String mit User-Parametern) | `getAllUserOverrides()`, `upsertOverride()` |
+| `projects` | `id` (Text) | `name`, `path` (absoluter Ordnerpfad), `lastOpenedAt` | `getRecent(limit:10)`, `watchAll()`, `touchLastOpened(id)` |
+| `batches` | `id` (Text) | `projectId`, `name`, `configJson` (BatchConfig als JSON), `status` (created/running/paused/completed/failed/cancelled) | `getByProject()`, `watchByProject()`, `updateStatus()` |
+| `batch_logs` | autoincrement `id` | `batchId`, `level`, `message`, `inputTokens`, `outputTokens`, `costUsd` | `getByBatch()`, `watchByBatch()` |
+
+**Zugriff:** Ueber den Riverpod-Provider `databaseProvider` (`lib/providers/database_provider.dart`), der eine Singleton-`AppDatabase`-Instanz bereitstellt.
+
+**Achtung (Provider-Name-Clash):** Drift generiert eine Klasse `Provider` aus `providers_table.dart`. Um Konflikte mit Riverpods `Provider` zu vermeiden, importiert `database_provider.dart` Riverpod mit Prefix: `import '...flutter_riverpod.dart' as riverpod;`.
+
+### Datenklassen (freezed)
+
+Alle in `lib/data/models/`. Jede hat `fromJson`/`toJson`:
+
+| Klasse | Datei | Zweck |
+|--------|-------|-------|
+| `ProviderConfig` | `provider_config.dart` | API-Provider (id, name, type, baseUrl, authType, isLocal, isEnabled) |
+| `ModelInfo` | `model_info.dart` | Model-Metadaten (id, provider, displayName, contextWindow, maxOutputTokens, pricing, capabilities, parameters) |
+| `ModelPricing` | `model_info.dart` | Preise (inputPerMillion, outputPerMillion, currency) |
+| `ModelCapabilities` | `model_info.dart` | Faehigkeiten (chat, vision, jsonMode, reasoning, extendedThinking...) |
+| `ModelParameter` | `model_info.dart` | Ein Parameter (supported, type=float/integer/enum, min, max, defaultValue, values) |
+| `BatchConfig` | `batch_config.dart` | Batch-Konfiguration (batchId, projectId, input, promptFiles, chunkSettings, models, privacyConfirmed) |
+| `BatchInput` | `batch_config.dart` | Input-Quelle (type=excel/folder, path, sheetName, idColumn, itemColumn, itemCount) |
+| `ChunkSettings` | `batch_config.dart` | Chunk-Config (chunkSize, repetitions, shuffleBetweenReps) |
+| `BatchModelConfig` | `batch_config.dart` | Model fuer Batch (modelId, providerId, parameters-Map) |
+| `BatchStats` | `batch_stats.dart` | Laufzeit-Statistiken (totalApiCalls, completedApiCalls, tokens, cost, timing) |
+| `BatchProgress` | `batch_stats.dart` | Fortschritt (currentRepetition, currentPromptIndex, currentChunkIndex, callCounter, progressPercent) |
+| `CostEstimate` | `cost_estimate.dart` | Vorab-Kostenberechnung (estimatedInputTokens, estimatedApiCalls, estimatedCostUsd) |
+| `TokenEstimate` | `cost_estimate.dart` | Token-Zaehlung (inputTokens, outputTokens, totalTokens) |
+| `Item` | `item.dart` | Ein Datensatz (id, text, source) |
+| `Checkpoint` | `checkpoint.dart` | Checkpoint (batchId, progress, stats, config, results, savedAt) |
+| `LogEntry` | `log_entry.dart` | Log-Eintrag (level=info/warn/error, message, details, timestamp) |
+
+### Services (alle in `lib/services/`)
+
+| Service | Datei | Oeffentliche Methoden | Benutzt von |
+|---------|-------|----------------------|-------------|
+| `EncryptionService` | `encryption_service.dart` | `unlock(password, salt)`, `lock()`, `encryptData(plaintext)` -> Uint8List, `decryptData(blob)` -> String, `hashPassword()`, `verifyPassword()`, `generateSalt()` | Setup Wizard, Auth Screen, Provider-Verwaltung |
+| `ModelRegistryService` | `model_registry_service.dart` | `getMergedRegistry()`, `getProviders()`, `getModelIds()`, `getModelsByProvider()`, `getModelInfo(modelId)` -> ModelInfo, `getModelParameters(modelId)`, `getModelPricing(modelId)` | Model Manager, Batch Wizard (Model-Auswahl), Kosten-Berechnung |
+| `FileParserService` | `file_parser_service.dart` | `parseExcel(path, idColumn, itemColumn)`, `parseCsv()`, `parsePdf()`, `parseDocx()`, `parseTextFile()`, `parseFile(path)` (auto-detect), `parseFolderStream()` (async* Stream) | Batch Wizard Schritt 1 (Item-Laden) |
+| `LlmApiService` | `llm_api_service.dart` | `callLlm(providerType, baseUrl, modelId, messages, apiKey, parameters)` -> LlmResponse, `testConnection(providerType, baseUrl, apiKey)` -> bool | Batch Worker (API-Calls), Setup Wizard (Verbindungstest) |
+| `JsonParserService` | `json_parser_service.dart` | `parseResponse(response, debugDir)` -> List<Map>? | Batch Worker (Antwort-Parsing) |
+| `CheckpointService` | `checkpoint_service.dart` | `saveCheckpoint(...)`, `loadCheckpoint(projectPath, batchId)`, `hasCheckpoint()`, `deleteCheckpoint()`, `cleanupOldCheckpoints()` | Batch Worker (Speichern/Laden), Resume Dialog |
+| `TokenEstimationService` | `token_estimation_service.dart` | `estimateTokens(text)` -> int, `estimateBatchCost(promptTexts, totalItems, chunkSize, reps, maxTokens, pricing)` -> CostEstimate | Batch Wizard Schritt 5 (Kosten-Vorschau) |
+| `PromptService` | `prompt_service.dart` | `loadPrompts(promptsDir)` -> Map<name,content>, `hasPlaceholder(text)`, `injectItems(template, items)`, `validatePrompt(text)`, `createChunks(items, chunkSize)` | Batch Wizard Schritt 2, Batch Worker |
+| `ProjectFileService` | `project_file_service.dart` | `createProject(path, name, projectId)`, `validateProject(path)` -> Map?, `promptsDir(path)`, `inputDir(path)`, `resultsDir(path)` | Project Manager |
+| `LmStudioCliService` | `lm_studio_cli_service.dart` | `loadModel(modelId, onProgress)`, `waitForServer(baseUrl, timeout)`, `isCliAvailable()` | LM Studio Provider-Setup |
+
+### Riverpod Providers (alle in `lib/providers/`)
+
+| Provider | Typ | Liefert | Benutzt |
+|----------|-----|---------|---------|
+| `databaseProvider` | `riverpod.Provider<AppDatabase>` | Singleton DB-Instanz | Fast alles |
+| `encryptionProvider` | `Provider<EncryptionService>` | Singleton EncryptionService | Auth, Provider-Verwaltung |
+| `modelRegistryProvider` | `Provider<ModelRegistryService>` | Singleton ModelRegistryService | Model-UIs |
+| `mergedRegistryProvider` | `FutureProvider<Map>` | Zusammengefuehrte Registry (bundled+remote+user) | Model-UIs |
+| `isSetupCompleteProvider` | `FutureProvider<bool>` | `true` wenn `settings['setup_complete'] == 'true'` | `app.dart` (initiale Route) |
+
+### Navigation (GoRouter)
+
+**Datei:** `lib/core/router/app_router.dart`
+
+```
+/setup          -> SetupWizardScreen (vor erstem Setup)
+/auth           -> PasswordScreen (Passwort-Eingabe)
+/projects       -> ProjectManagerScreen (in AppShell mit NavigationRail)
+/models         -> ModelManagerScreen (in AppShell)
+/settings       -> SettingsScreen (in AppShell)
+```
+
+**App-Start-Logik** (`lib/app.dart`): `isSetupCompleteProvider` bestimmt die Initial-Route:
+- `false` -> `/setup`
+- `true` -> `/auth`
+
+Nach erfolgreicher Passwort-Eingabe navigiert `/auth` zu `/projects`.
+
+### UI-Shell
+
+**Datei:** `lib/core/shell/app_shell.dart`
+
+`NavigationRail` (links) mit 3 Destinations: Projects, Models, Settings. Rechts der Content-Bereich (`child`). Das `ShellRoute`-Layout gilt nur fuer `/projects`, `/models`, `/settings`.
+
+### Platzhalter-Screens
+
+Folgende Screens existieren als Platzhalter und muessen in Phase 3/4/5 durch echte Implementierungen ersetzt werden:
+
+| Screen | Datei | Phase |
+|--------|-------|-------|
+| `SetupWizardScreen` | `lib/features/setup_wizard/setup_wizard_screen.dart` | Phase 3.1 |
+| `PasswordScreen` | `lib/features/auth/password_screen.dart` | Phase 3.2 |
+| `ProjectManagerScreen` | `lib/features/project_manager/project_manager_screen.dart` | Phase 3.3 |
+| `ModelManagerScreen` | `lib/features/model_manager/model_manager_screen.dart` | Phase 4.5 |
+| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Phase 5 |
+
+### Konstanten
+
+**Datei:** `lib/core/constants/app_constants.dart`
+
+Wichtige Werte:
+- `pbkdf2Iterations`: 100.000
+- `saltLength`: 32 Bytes
+- `ivLength`: 12 Bytes (AES-GCM)
+- `keyLength`: 32 Bytes (AES-256)
+- `defaultCheckpointInterval`: 10 API-Calls
+- `charsPerToken`: 4 (Token-Schaetzung)
+- `itemPlaceholder`: `[Insert IDs and Items here]`
+- `maxChunkSize`: 100
+- `maxRepetitions`: 100
+- `maxRetries`: 5 (LLM-Calls)
+- `rateLimitDelay`: 30 Sekunden (bei 429)
+- `projectSubdirs`: `['prompts', 'input', 'batches', 'results']`
+- `projectFileName`: `project.xtractaid.json`
+
+### PRD-Referenz
+
+Die vollstaendige Anforderungsspezifikation ist in `specs/XtractAid_PRD_Final.md`. Wichtige Requirement-IDs:
+
+| ID | Thema | PRD-Zeile |
+|----|-------|-----------|
+| F-SETUP-01 | Setup-Wizard (6 Schritte) | 152 |
+| F-SETUP-02 | Master-Passwort | 165 |
+| F-SETUP-03 | API-Key-Sicherheit | 172 |
+| F-PROJ-01 | Projektstruktur | 308 |
+| F-PROJ-02 | project.xtractaid.json | 330 |
+| F-PROJ-03 | Projektoperationen | 347 |
+| F-BATCH-01 | Batch-Definition | 593 |
+| F-BATCH-02 | Chunk-Einstellungen | 639 |
+| F-BATCH-03 | Model-Parameter | 675 |
+| F-EXEC-01 | Ausfuehrungs-Ablauf | 790 |
+| F-EXEC-04 | Response-Parsing | 915 |
+| F-EXEC-05 | Ergebnis-Aggregation | 975 |
+| F-CHKPT-03 | Resume-Dialog | 1093 |
+| F-OUTPUT-01 | Excel-Export | 1136 |
+| F-OUTPUT-02 | Log-Datei | 1193 |
+| F-OUTPUT-03 | HTML-Report | 1269 |
+| F-PRIVACY-01 | Datenschutz-Warnung | 1331 |
+| F-PRIVACY-02 | Strict Local Mode | 1354 |
+
+---
+
+## Phase 3: Frontend Core -- NAECHSTER SCHRITT
+
+### 3.1 Setup Wizard
+
+**PRD-Referenz:** F-SETUP-01, F-SETUP-02, F-SETUP-03
+
+**Zu ersetzen:** `lib/features/setup_wizard/setup_wizard_screen.dart` (aktuell Platzhalter: "Setup Wizard - TODO Phase 3")
+
+**Struktur:** Einen `StatefulWidget` oder `ConsumerStatefulWidget` mit `Stepper` oder eigenem `PageView`-basiertem Wizard erstellen. Dazu 6 Step-Widgets als eigene Dateien.
+
+**Neue Dateien:**
+```
+lib/features/setup_wizard/
+  setup_wizard_screen.dart         -- Haupt-Screen mit Step-Navigation
+  steps/
+    step_welcome.dart              -- Schritt 1
+    step_password.dart             -- Schritt 2
+    step_provider.dart             -- Schritt 3
+    step_api_key.dart              -- Schritt 4
+    step_basic_settings.dart       -- Schritt 5
+    step_finish.dart               -- Schritt 6
+```
+
+**Schritt 1 -- Willkommen:**
+- Logo/Titel "XtractAid"
+- Kurze Beschreibung was die App macht
+- Sprachauswahl-Dropdown (DE/EN) -> speichern in `settings['language']` via `db.settingsDao.setValue()`
+- "Weiter"-Button
+
+**Schritt 2 -- Master-Passwort:**
+- 2 TextFields: "Passwort" + "Passwort bestaetigen"
+- Passwort-Staerke-Indikator (visueller Balken: rot < 8 Zeichen, gelb < 12, gruen >= 12)
+- Min. 8 Zeichen Validierung
+- Bei "Weiter":
+  1. `final salt = encryptionService.generateSalt();`
+  2. `final hash = encryptionService.hashPassword(password, salt);`
+  3. `db.settingsDao.setValue('password_hash', hash);`
+  4. `db.settingsDao.setValue('password_salt', base64Encode(salt));`
+  5. `encryptionService.unlock(password, salt);`
+- Services holen via `ref.read(encryptionProvider)` und `ref.read(databaseProvider)`
+
+**Schritt 3 -- Provider waehlen:**
+- `DropdownButtonFormField` mit 6 Optionen:
+  - OpenAI (cloud), Anthropic (cloud), Google Gemini (cloud), OpenRouter (cloud), Ollama (lokal), LM Studio (lokal)
+- Info-Text unter dem Dropdown: "Cloud-Provider benoetigen einen API-Key. Lokale Provider (Ollama, LM Studio) laufen auf Ihrem Rechner."
+- Provider-Infos aus `ModelRegistryService.getProviders()` laden
+
+**Schritt 4 -- API-Key eingeben + testen:**
+- Falls lokaler Provider (Ollama/LM Studio): Key-Feld ueberspringen, nur Verbindungstest
+- Falls Cloud-Provider: `TextField(obscureText: true)` fuer API-Key
+- "Verbindung testen"-Button:
+  1. `final ok = await llmApiService.testConnection(providerType: type, baseUrl: url, apiKey: key);`
+  2. Gruener Haken oder roter Fehler-Text
+- Bei "Weiter":
+  1. API-Key verschluesseln: `final blob = encryptionService.encryptData(apiKey);`
+  2. Provider in DB speichern: `db.providersDao.insertProvider(ProvidersCompanion(id: Value(uuid), name: ..., type: ..., baseUrl: ..., encryptedApiKey: Value(blob)))`
+- `LlmApiService` muss hier instanziiert werden (noch kein Provider dafuer -- entweder direkt `LlmApiService()` oder neuen Riverpod-Provider erstellen)
+
+**Schritt 5 -- Grundeinstellungen (optional):**
+- Checkbox "Strict Local Mode" -> nur lokale Provider erlauben (F-PRIVACY-02)
+- Hinweis: "Diese Einstellungen koennen spaeter in den Einstellungen geaendert werden."
+- Speichern: `db.settingsDao.setValue('strict_local_mode', 'true'/'false')`
+
+**Schritt 6 -- Fertig:**
+- Zusammenfassung: Gewaehlter Provider, Verbindung OK, Passwort gesetzt
+- "XtractAid starten"-Button:
+  1. `db.settingsDao.setValue('setup_complete', 'true');`
+  2. `context.go('/projects');`
+  3. `ref.invalidate(isSetupCompleteProvider);` (damit App-State aktualisiert wird)
+
+### 3.2 Auth Screen (Passwort-Eingabe)
+
+**PRD-Referenz:** F-SETUP-02
+
+**Zu ersetzen:** `lib/features/auth/password_screen.dart` (aktuell funktionaler Platzhalter, navigiert ohne Passwort-Check)
+
+**Datei:** `lib/features/auth/password_screen.dart` -- als `ConsumerStatefulWidget` umschreiben.
+
+**Funktionalitaet:**
+1. Zentriertes Layout: Logo, "XtractAid"-Titel, Passwort-TextField, "Entsperren"-Button
+2. Bei Submit:
+   - Salt laden: `final saltB64 = await db.settingsDao.getValue('password_salt');`
+   - Hash laden: `final storedHash = await db.settingsDao.getValue('password_hash');`
+   - Verifizieren: `encryptionService.verifyPassword(password, base64Decode(saltB64!), storedHash!)`
+   - Bei Erfolg: `encryptionService.unlock(password, salt)` + `context.go('/projects')`
+   - Bei Fehler: Fehlermeldung "Falsches Passwort" unter dem Feld anzeigen
+3. "Passwort vergessen?"-Link:
+   - Dialog: "Alle API-Keys werden geloescht. Fortfahren?"
+   - Bei Ja: Alle Provider-Eintraege loeschen, settings `password_hash`/`password_salt`/`setup_complete` loeschen, `context.go('/setup')`
+
+### 3.3 Project Manager
+
+**PRD-Referenz:** F-PROJ-01, F-PROJ-02, F-PROJ-03
+
+**Zu ersetzen:** `lib/features/project_manager/project_manager_screen.dart` (aktuell: "Project Manager - TODO Phase 3")
+
+**Neue Dateien:**
+```
+lib/features/project_manager/
+  project_manager_screen.dart     -- Haupt-Screen
+  widgets/
+    project_card.dart             -- Card-Widget fuer ein Projekt
+    new_project_dialog.dart       -- Dialog zum Erstellen
+    open_project_dialog.dart      -- Dialog zum Oeffnen (Ordner waehlen)
+```
+
+**Neuer Provider:**
+```
+lib/providers/project_provider.dart
+  -- projectListProvider: StreamProvider -> db.projectsDao.watchAll()
+  -- currentProjectProvider: StateProvider<Project?> -> aktuell geoeffnetes Projekt
+```
+
+**Screen-Layout:**
+- AppBar: "Projects" + FAB oder Buttons "Neues Projekt" + "Projekt oeffnen"
+- Body: Liste der letzten 10 Projekte als Cards (`db.projectsDao.getRecent()`)
+- Jede Card zeigt: Projektname, Pfad, Letzte Oeffnung, "Oeffnen"-Button
+- Leerer State: Illustration + "Erstellen Sie Ihr erstes Projekt"
+
+**Neues Projekt erstellen (Dialog):**
+1. TextField: Projektname
+2. "Ordner waehlen"-Button -> `FilePicker.platform.getDirectoryPath()`
+3. "Erstellen"-Button:
+   - `final projectId = const Uuid().v4();`
+   - `await projectFileService.createProject(path: '$chosenDir/$name', name: name, projectId: projectId);`
+   - `await db.projectsDao.insertProject(ProjectsCompanion(id: Value(projectId), name: Value(name), path: Value('$chosenDir/$name')));`
+   - `db.projectsDao.touchLastOpened(projectId);`
+   - Projekt oeffnen -> Batch-Uebersicht (Route: `/projects/$projectId/batches`)
+
+**Projekt oeffnen (Dialog):**
+1. `FilePicker.platform.getDirectoryPath()` -> Ordner waehlen
+2. `projectFileService.validateProject(path)` -> null = ungueltig
+3. Falls gueltig: In DB einfuegen (falls noch nicht vorhanden), `touchLastOpened`, navigieren
+4. Falls ungueltig: Fehlermeldung "Kein gueltiges XtractAid-Projekt"
+
+**Routing-Erweiterung:** Neue Routes in `app_router.dart` hinzufuegen:
+```
+/projects                         -> ProjectManagerScreen (Uebersicht)
+/projects/:projectId              -> ProjectDetailScreen (Batches + Prompts)
+/projects/:projectId/batch/new    -> BatchWizardScreen
+/projects/:projectId/batch/:batchId -> BatchExecutionScreen (Phase 4)
+```
+
+**ProjectDetailScreen** (neue Datei: `lib/features/project_manager/project_detail_screen.dart`):
+- Zeigt: Projektname, Pfad, Erstellt am
+- Tab oder Abschnitte:
+  - **Batches:** Liste der Batches (`db.batchesDao.watchByProject(projectId)`) mit Status-Badge (created/running/completed/failed), "Neuer Batch"-Button -> Batch Wizard
+  - **Prompts:** Liste der `.txt`/`.md`-Dateien aus `prompts/`-Ordner
+  - **Input:** Liste der Dateien aus `input/`-Ordner
+
+### 3.4 Batch Wizard (5 Schritte)
+
+**PRD-Referenz:** F-BATCH-01, F-BATCH-02, F-BATCH-03, F-PRIVACY-01, Abschnitt 7.2
+
+**Neue Dateien:**
+```
+lib/features/batch_wizard/
+  batch_wizard_screen.dart        -- Haupt-Screen mit Stepper
+  steps/
+    step_items.dart               -- Schritt 1: Items laden
+    step_prompts.dart             -- Schritt 2: Prompts waehlen
+    step_chunks.dart              -- Schritt 3: Chunk-Einstellungen
+    step_model.dart               -- Schritt 4: Model konfigurieren
+    step_confirm.dart             -- Schritt 5: Bestaetigung + Start
+```
+
+**Daten-Fluss:** Der Wizard sammelt schrittweise Daten und baut am Ende ein `BatchConfig`-Objekt zusammen. Verwende einen lokalen `StateNotifier` oder einen `ChangeNotifier` im Wizard-Screen, der die Zwischenergebnisse haelt.
+
+**Schritt 1 -- Items laden:**
+- Radio-Buttons: "Excel-Datei" oder "Dokumenten-Ordner"
+- Bei Excel:
+  - `FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['xlsx', 'xls', 'csv'])`
+  - `fileParserService.parseExcel(path)` -> `ParseResult`
+  - Sheet-Auswahl Dropdown (falls mehrere Sheets)
+  - Spalten-Mapping: ID-Spalte + Item-Spalte Dropdowns (aus Header-Zeile)
+- Bei Ordner:
+  - `FilePicker.platform.getDirectoryPath()`
+  - `fileParserService.parseFolderStream(path)` -> Stream mit Fortschritt
+- **Vorschau-Tabelle:** Die ersten 10 Items als `DataTable` anzeigen (ID + Text, Text abgeschnitten auf 200 Zeichen)
+- **Zusammenfassung:** "X Items geladen, Y Warnungen"
+- Warnungen in gelber Box anzeigen
+
+**Schritt 2 -- Prompts waehlen:**
+- Lade Prompts: `promptService.loadPrompts(projectFileService.promptsDir(projectPath))`
+- Dual-Liste:
+  - Links: "Verfuegbar" (alle nicht-ausgewaehlten Prompts)
+  - Rechts: "Ausgewaehlt" (mit Drag&Drop-Reihenfolge via `ReorderableListView`)
+  - Buttons: ">>" (hinzufuegen), "<<" (entfernen)
+- Vorschau-Bereich: Inhalt des ausgewaehlten Prompts anzeigen
+- Warnung falls Prompt keinen Platzhalter hat: `promptService.validatePrompt()`
+- Falls keine Prompts im `prompts/`-Ordner: Hinweis mit Link "Prompt-Dateien (.txt, .md) in den prompts/-Ordner legen"
+
+**Schritt 3 -- Chunk-Einstellungen:**
+- `Slider` fuer Chunk-Groesse: 1-100 (default 1), Label: "Items pro API-Call"
+- `Slider` fuer Wiederholungen: 1-100 (default 1), Label: "Wiederholungen (mit Shuffle)"
+- Berechnungs-Box:
+  - "X Items / Y Chunk-Groesse = Z Chunks"
+  - "Z Chunks x N Prompts x R Wiederholungen = T API-Calls total"
+- Tooltip: "Bei chunk_size > 1 werden mehrere Items gleichzeitig im Prompt gesendet. Dies spart API-Calls, kann aber die Qualitaet reduzieren."
+
+**Schritt 4 -- Model konfigurieren:**
+- **ModelSelector-Widget** (-> `lib/shared/widgets/model_selector.dart`):
+  - `DropdownButtonFormField` gruppiert nach Provider
+  - Zeigt: Model-Name, Kontext-Fenster, Preis/1M Tokens
+  - Daten aus `modelRegistryService.getModelsByProvider()`
+- **ModelConfigurator-Widget** (-> `lib/shared/widgets/model_configurator.dart`):
+  - Dynamisch basierend auf `modelRegistryService.getModelParameters(modelId)`
+  - Fuer jeden Parameter mit `supported: true`:
+    - `type: 'float'` -> `Slider` mit `min`/`max`/`defaultValue`
+    - `type: 'integer'` -> `Slider` mit ganzzahligen Steps
+    - `type: 'enum'` -> `DropdownButtonFormField` mit `values`-Liste
+  - Labels: Parametername + aktueller Wert
+- "Weiteres Model hinzufuegen"-Button (Multi-Model: speichert Liste von `BatchModelConfig`)
+- Falls Provider lokal (Ollama/LM Studio): Kein API-Key noetig, Hinweis "Lokales Model"
+
+**Schritt 5 -- Bestaetigung + Start:**
+- **Zusammenfassung:** Tabelle mit Items (Anzahl, Quelle), Prompts (Namen), Chunks, Repetitions, Model(s), Gesamt-API-Calls
+- **Kosten-Vorschau:** `tokenEstimationService.estimateBatchCost(...)` -> CostEstimate anzeigen:
+  - Geschaetzte Input-Tokens + Kosten
+  - Geschaetzte Output-Tokens + Kosten
+  - Gesamt-Kosten (USD)
+  - Hinweis: "Schaetzung basierend auf ~4 Zeichen/Token"
+- **Datenschutz-Checkbox** (nur bei Cloud-Providern, PRD F-PRIVACY-01):
+  - Text: "Ich bestaetige, dass das Senden dieser Daten an [Provider] mit meinen Datenschutzanforderungen vereinbar ist."
+  - Muss angehakt sein bevor "Starten" aktiv wird
+  - Dialog `PrivacyWarningDialog` beim ersten Mal anzeigen
+- **"Batch starten"-Button:**
+  1. `BatchConfig`-Objekt zusammenbauen
+  2. In DB speichern: `db.batchesDao.insertBatch(BatchesCompanion(id: Value(batchId), projectId: ..., configJson: Value(jsonEncode(config.toJson())), status: Value('created')))`
+  3. Navigieren zu `/projects/$projectId/batch/$batchId` (Execution Screen, Phase 4)
+
+### 3.5 Shared Widgets
+
+**Verzeichnis:** `lib/shared/widgets/`
+
+Diese Widgets werden von mehreren Screens benutzt. Sie sollten alle **stateless** oder **Consumer-Widgets** sein und ihre Daten ueber Parameter erhalten.
+
+| Widget | Datei | Beschreibung | Benutzt von |
+|--------|-------|-------------|-------------|
+| `FileSelector` | `file_selector.dart` | FilePicker-Button + Pfad-Anzeige + Typ-Erkennung (Excel/Ordner) | Batch Wizard Schritt 1 |
+| `PromptViewer` | `prompt_viewer.dart` | Zeigt Prompt-Text mit Syntax-Highlighting fuer den Platzhalter `[Insert IDs and Items here]` (blau/fett hervorgehoben) | Batch Wizard Schritt 2 |
+| `PromptSelector` | `prompt_selector.dart` | Dual-Liste (verfuegbar/ausgewaehlt) mit Buttons und ReorderableListView | Batch Wizard Schritt 2 |
+| `ModelSelector` | `model_selector.dart` | Grouped Dropdown mit Provider-Gruppierung, zeigt Preis + Context-Window | Batch Wizard Schritt 4 |
+| `ModelConfigurator` | `model_configurator.dart` | Dynamische Parameter-UI (Slider/Dropdown) basierend auf `ModelParameter`-Map | Batch Wizard Schritt 4, Model Manager |
+| `CostEstimateCard` | `cost_estimate_card.dart` | Card mit Input/Output-Tokens, API-Calls, geschaetzten Kosten in USD | Batch Wizard Schritt 5 |
+| `ProgressBarWidget` | `progress_bar.dart` | LinearProgressIndicator + Prozent + "X/Y Calls" Text | Execution Screen (Phase 4) |
+| `LogViewer` | `log_viewer.dart` | ListView von LogEntry mit Farbcodierung: INFO=grau, WARN=amber, ERROR=rot. Auto-scroll, Filter-Dropdown | Execution Screen (Phase 4) |
+| `PrivacyWarningDialog` | `privacy_warning_dialog.dart` | AlertDialog: "Datenschutz-Hinweis: Sie senden Daten an [Provider] ([Region]). DSGVO beachten." + "Nicht mehr anzeigen"-Checkbox + "Abbrechen"/"Verstanden"-Buttons | Batch Wizard Schritt 5 |
+| `ResumeDialog` | `resume_dialog.dart` | AlertDialog: Checkpoint-Info (Datum, Fortschritt, Tokens) + "Neu starten"/"Fortsetzen"-Buttons | Execution Screen (Phase 4) |
+
+---
+
+## Phase 4: Integration
+
+### 4.1 Worker Messages (Sealed Classes)
+
+**Neue Datei:** `lib/workers/worker_messages.dart`
+
+Definiere sealed classes fuer die bidirektionale Isolate-Kommunikation:
+
+```dart
+// Main Isolate -> Worker
+sealed class WorkerCommand {}
+class StartBatchCommand extends WorkerCommand {
+  final BatchConfig config;
+  final List<Item> items;
+  final Map<String, String> prompts; // name -> content
+  final String projectPath;
+  final String? apiKey; // entschluesselt
+  StartBatchCommand({required this.config, ...});
+}
+class PauseBatchCommand extends WorkerCommand {}
+class ResumeBatchCommand extends WorkerCommand {}
+class StopBatchCommand extends WorkerCommand {}
+
+// Worker -> Main Isolate
+sealed class WorkerEvent {}
+class ProgressEvent extends WorkerEvent { final BatchProgress progress; }
+class LogEvent extends WorkerEvent { final LogEntry entry; }
+class CheckpointSavedEvent extends WorkerEvent { final int callCount; }
+class BatchCompletedEvent extends WorkerEvent { final BatchStats stats; final List<Map<String, dynamic>> results; }
+class BatchErrorEvent extends WorkerEvent { final String message; final String? details; }
+```
+
+### 4.2 Batch Execution Worker (Isolate)
+
+**Neue Datei:** `lib/workers/batch_execution_worker.dart`
+
+Dies ist das Herzstueck der App. Ein langlebiger Isolate, der:
+
+1. `Isolate.spawn()` mit `SendPort` fuer bidirektionale Kommunikation
+2. Empfaengt `StartBatchCommand` mit Config, Items, Prompts
+3. **Hauptschleife** (PRD F-EXEC-01):
+   ```
+   fuer jede Repetition (1..reps):
+     items shufflen (falls shuffle=true)
+     fuer jeden Prompt:
+       chunks = promptService.createChunks(items, chunkSize)
+       fuer jeden Chunk:
+         -- Pause/Stop-Flag pruefen --
+         message = promptService.injectItems(promptTemplate, chunkItems)
+         response = llmApiService.callLlm(...)
+         parsed = jsonParserService.parseResponse(response.content)
+         results.addAll(parsed)
+         callCounter++
+         if (callCounter % checkpointInterval == 0):
+           checkpointService.saveCheckpoint(...)
+           sende CheckpointSavedEvent
+         sende ProgressEvent
+         sende LogEvent
+   sende BatchCompletedEvent
+   ```
+4. **Services im Isolate:** LlmApiService, JsonParserService, CheckpointService, PromptService muessen INNERHALB des Isolates instanziiert werden (sie koennen nicht ueber SendPort uebergeben werden). Die Services benutzen nur Dio (HTTP) und Dateisystem-Operationen -- beides funktioniert in Isolates.
+5. **Pause/Stop:** Zwischen jedem Chunk wird ein Flag geprueft. Bei Pause: `Completer` blockiert. Bei Stop: Schleife abbrechen, letzten Checkpoint speichern.
+
+### 4.3 Batch Execution Provider (Riverpod)
+
+**Neue Datei:** `lib/providers/batch_execution_provider.dart`
+
+- `StateNotifier<BatchExecutionState>` mit States: `idle`, `starting`, `running(progress, logs, stats)`, `paused`, `completed(stats, results)`, `failed(error)`
+- Startet Isolate, sendet Commands, empfaengt Events
+- Aktualisiert State bei jedem Event (ProgressEvent -> progress updaten, LogEvent -> logs-Liste erweitern, etc.)
+- Bei App-Schliessung: StopBatchCommand senden
+
+### 4.4 Batch Execution Screen
+
+**Neue Dateien:**
+```
+lib/features/batch_execution/
+  batch_execution_screen.dart     -- Haupt-Screen
+  widgets/
+    execution_stats_panel.dart    -- Statistik-Panel
+    execution_controls.dart       -- Pause/Stop/Resume-Buttons
+```
+
+**Layout** (PRD 7.3):
+- **Oben:** Batch-Name + Status-Badge + Pause/Stop-Buttons
+- **Mitte-Links:** Fortschrittsbalken (ProgressBarWidget) + aktuelle Position (Rep X/Y, Prompt "name", Chunk Z/W)
+- **Mitte-Rechts:** Statistik-Panel (Dauer, verbleibend, Tokens/min, Items/min, Input/Output-Tokens, Kosten, Fehler)
+- **Unten:** LogViewer (mit Filter: All/Errors/Warnings)
+
+**Resume-Logik:** Beim Oeffnen des Screens pruefen: `checkpointService.hasCheckpoint(projectPath, batchId)` -> Falls ja: `ResumeDialog` anzeigen -> Bei "Fortsetzen": Checkpoint laden und an Worker uebergeben.
+
+### 4.5 Report-Generierung
+
+**Neue Datei:** `lib/services/report_generator_service.dart`
+
+3 Formate:
+
+**Excel (P0):**
+- `syncfusion_flutter_xlsio` -> `Workbook`, `Worksheet`
+- Erste Zeile: Header (ID + alle JSON-Keys aus den Ergebnissen)
+- Jede weitere Zeile: ein Item mit seinen Ergebnis-Werten
+- Speichern: `File('$resultsDir/results.xlsx').writeAsBytesSync(workbook.saveAsStream())`
+
+**Markdown Log (P0):**
+- Session-Info (Start, Ende, Dauer, Status)
+- Konfiguration (Model, Chunks, Reps, Prompts)
+- Token-Statistiken (Input, Output, Gesamt)
+- Kosten-Zusammenfassung
+- Fehler-Tabelle
+- Prompt-Inhalte
+
+**HTML Report (P1):**
+- Standalone HTML mit eingebettetem CSS + JS
+- Sidebar-Navigation (Item-Liste mit Suche)
+- Summary-Abschnitt (Items, Erfolgsquote, Fehler, Kosten)
+- Pro Item ein "Dossier" mit allen Ergebnis-Feldern als Definition-List
+
+### 4.6 Model Manager UI
+
+**Zu ersetzen:** `lib/features/model_manager/model_manager_screen.dart` (aktuell Platzhalter)
+
+**Layout:** `DefaultTabController` mit 3 Tabs:
+
+1. **Registry Models:** Liste aller Models aus `getMergedRegistry()` mit Provider-Gruppierung, Preis, Context-Window, Capabilities-Badges
+2. **Custom Models:** User Overrides aus `db.modelsDao`, Bearbeiten/Loeschen
+3. **Discovered Models:** (optional P1) API-Discovery -- `GET /models` an Provider senden und verfuegbare Models auflisten
+
+Jedes Model hat einen Detail-Dialog mit allen Feldern (Pricing, Parameters, Capabilities).
+
+---
+
+## Phase 5: Polish
+
+### 5.1 Lokalisierung (DE/EN)
+- ARB-Dateien unter `lib/core/l10n/`: `app_de.arb`, `app_en.arb`
+- `flutter_localizations` + `intl` (bereits in pubspec.yaml)
+- Alle UI-Texte extrahieren und durch `AppLocalizations.of(context)!.xyz` ersetzen
+- Sprachauswahl: Aus `settings['language']` laden, in Setup Wizard + Settings aenderbar
+
+### 5.2 Settings Screen
+**Zu ersetzen:** `lib/features/settings/settings_screen.dart` (aktuell Platzhalter)
+- Abschnitt "Allgemein": Sprache, Theme (optional)
+- Abschnitt "Sicherheit": Passwort aendern, Provider-Keys verwalten
+- Abschnitt "Datenschutz": Strict Local Mode Toggle
+- Abschnitt "Erweitert": Checkpoint-Intervall, Token-Schaetzung
+
+### 5.3 Fehlerbehandlung + UX
+- Globaler Error Handler in `main.dart` (`FlutterError.onError` + `PlatformDispatcher.instance.onError`)
+- Graceful Shutdown: `WidgetsBindingObserver.didChangeAppLifecycleState` -> bei Pause/Detach: laufende Batches checkpointen
+- Tastaturkuerzel: `RawKeyboardListener` oder `Shortcuts` Widget (Ctrl+N=Neues Projekt, Ctrl+O=Oeffnen, F5=Batch starten, Escape=Zurueck)
+
+### 5.4 Testing
+- **Unit Tests** (`test/services/`): EncryptionService (encrypt/decrypt roundtrip), JsonParserService (alle 6 Strategien), TokenEstimationService (Berechnung), PromptService (Platzhalter-Injection), FileParserService (mit Test-Dateien)
+- **Widget Tests** (`test/widgets/`): Shared Widgets rendern korrekt, Wizard-Steps Navigation
+- **Integration Tests** (`integration_test/`): Setup Wizard komplett durchlaufen (mit Mock-DB), Batch Wizard konfigurieren (mit Mock-LLM)
+
+### 5.5 Windows-Distribution
+- `flutter build windows --release`
+- MSIX-Paket (`msix` Flutter-Package) oder Inno Setup
+- App-Icon in `windows/runner/resources/app_icon.ico`
+
+---
+
+## Bisher erstellte Dateien
+
+### Phase 1 (Foundation)
+```
+pubspec.yaml
+assets/model_registry.json
+lib/main.dart
+lib/app.dart
+lib/core/constants/app_constants.dart
+lib/core/theme/app_theme.dart
+lib/core/router/app_router.dart
+lib/core/shell/app_shell.dart
+lib/data/database/app_database.dart
+lib/data/database/tables/settings_table.dart
+lib/data/database/tables/providers_table.dart
+lib/data/database/tables/models_table.dart
+lib/data/database/tables/projects_table.dart
+lib/data/database/tables/batches_table.dart
+lib/data/database/tables/batch_logs_table.dart
+lib/data/database/daos/settings_dao.dart
+lib/data/database/daos/providers_dao.dart
+lib/data/database/daos/models_dao.dart
+lib/data/database/daos/projects_dao.dart
+lib/data/database/daos/batches_dao.dart
+lib/data/database/daos/batch_logs_dao.dart
+lib/data/models/provider_config.dart
+lib/data/models/model_info.dart
+lib/data/models/batch_config.dart
+lib/data/models/batch_stats.dart
+lib/data/models/cost_estimate.dart
+lib/data/models/item.dart
+lib/data/models/checkpoint.dart
+lib/data/models/log_entry.dart
+lib/services/encryption_service.dart
+lib/services/model_registry_service.dart
+lib/providers/database_provider.dart
+lib/providers/encryption_provider.dart
+lib/providers/model_registry_provider.dart
+lib/providers/settings_provider.dart
+lib/features/setup_wizard/setup_wizard_screen.dart  (Platzhalter -> Phase 3.1)
+lib/features/auth/password_screen.dart               (Platzhalter -> Phase 3.2)
+lib/features/project_manager/project_manager_screen.dart  (Platzhalter -> Phase 3.3)
+lib/features/model_manager/model_manager_screen.dart      (Platzhalter -> Phase 4.6)
+lib/features/settings/settings_screen.dart                (Platzhalter -> Phase 5.2)
+test/widget_test.dart
+```
+
+### Phase 2 (Core Services)
+```
+lib/services/file_parser_service.dart
+lib/services/llm_api_service.dart
+lib/services/json_parser_service.dart
+lib/services/checkpoint_service.dart
+lib/services/token_estimation_service.dart
+lib/services/prompt_service.dart
+lib/services/project_file_service.dart
+lib/services/lm_studio_cli_service.dart
+```
+
+---
+
+## Risiken
+
+| Risiko | Mitigation |
+|--------|-----------|
+| DOCX-Parsing-Qualitaet (kein gutes Dart-Paket) | Frueh testen, manuelles ZIP+XML, nur Klartext |
+| PDF-Textextraktion bei komplexen PDFs | Syncfusion nutzen, Warnung bei leeren Ergebnissen |
+| Isolate-Kommunikation Komplexitaet | Klares sealed-class Protokoll, frueh Prototyp bauen |
+| Token-Schaetzung ungenau (chars/4) | Klar als "~Schaetzung" markieren, User warnen |
+| Syncfusion Lizenz | Community-Lizenz pruefen (kostenlos fuer < $1M Umsatz) |
+| freezed Code-Gen nicht aktiv | Datenklassen funktionieren manuell, aber `build_runner` waere sauberer |
+
+---
+
+## Verifizierung
+
+Nach jeder Phase:
+
+| Phase | Pruefung |
+|-------|----------|
+| Phase 0 | Grep: keine Python/React/Tauri-Reste in Spec-Dokumenten |
+| Phase 1 | `dart analyze`: 0 Fehler, `flutter build windows`: OK, App startet |
+| Phase 2 | `dart analyze`: 0 Fehler, `flutter build windows`: OK |
+| Phase 3 | Setup Wizard komplett durchlaufbar, Projekt anlegen/oeffnen, Batch Wizard konfigurierbar, Passwort-Screen funktioniert |
+| Phase 4 | Kompletter Batch-Durchlauf (10 Items, 1 Prompt, Ollama lokal), Excel-Export pruefbar, Live-Log, Pause/Resume funktioniert |
+| Phase 5 | DE/EN Sprachwechsel, Unit Tests gruen, Windows-Installer laeuft auf sauberem System |
