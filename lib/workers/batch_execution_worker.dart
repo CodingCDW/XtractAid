@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'dart:math';
 
 import '../core/constants/app_constants.dart';
+import '../core/utils/log_masking.dart';
 import '../data/models/batch_stats.dart';
 import '../data/models/item.dart';
 import '../data/models/log_entry.dart';
@@ -177,10 +178,11 @@ class _WorkerRuntime {
       final totalApiCalls =
           totalChunks * config.promptFiles.length * config.chunkSettings.repetitions;
 
+      final batchStartTime = DateTime.now();
       var stats = BatchStats(
         totalApiCalls: totalApiCalls,
         totalItems: command.items.length,
-        startedAt: DateTime.now(),
+        startedAt: batchStartTime,
       );
 
       final results = <Map<String, dynamic>>[];
@@ -213,55 +215,93 @@ class _WorkerRuntime {
           for (var chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
             final shouldContinue = await _waitIfPausedOrStopped();
             if (!shouldContinue) {
+              // Save checkpoint before stopping (H2)
+              if (callCounter > 0) {
+                final stopProgress = BatchProgress(
+                  currentRepetition: rep,
+                  totalRepetitions: config.chunkSettings.repetitions,
+                  currentPromptIndex: promptIndex + 1,
+                  totalPrompts: config.promptFiles.length,
+                  currentChunkIndex: chunkIndex + 1,
+                  totalChunks: chunks.length,
+                  callCounter: callCounter,
+                  progressPercent: totalApiCalls == 0
+                      ? 100.0
+                      : (callCounter / totalApiCalls) * 100.0,
+                  currentModelId: model.modelId,
+                  currentPromptName: promptName,
+                );
+                await _checkpointService.saveCheckpoint(
+                  projectPath: command.projectPath,
+                  batchId: config.batchId,
+                  progress: stopProgress,
+                  stats: stats,
+                  config: config,
+                  results: results,
+                );
+                _emitEvent(CheckpointSavedEvent(callCounter));
+              }
               _emitError('Batch execution stopped by user.');
+              return;
+            }
+
+            // Batch timeout check (H3)
+            if (DateTime.now().difference(batchStartTime) >
+                AppConstants.maxBatchDuration) {
+              _emitError(
+                'Batch timed out after ${AppConstants.maxBatchDuration.inHours} hours.',
+              );
               return;
             }
 
             final chunk = chunks[chunkIndex];
             final request = _promptService.injectItems(promptTemplate, chunk);
 
-            try {
-              final response = await _llmApiService.callLlm(
-                providerType: providerType,
-                baseUrl: baseUrl,
-                modelId: model.modelId,
-                messages: [ChatMessage(role: 'user', content: request)],
-                apiKey: command.apiKey,
-                parameters: model.parameters,
-              );
-
-              final parsed = _jsonParserService.parseResponse(
-                response.content,
-                debugDir:
-                    '${command.projectPath}/results/${config.batchId}/debug',
-              );
-              if (parsed != null) {
-                results.addAll(parsed);
-              } else {
-                _emitLog(
-                  'No parseable JSON for prompt "$promptName" in chunk ${chunkIndex + 1}.',
-                  level: LogLevel.warn,
+            LlmResponse? response;
+            for (var attempt = 0; attempt <= AppConstants.maxRetries; attempt++) {
+              try {
+                response = await _llmApiService.callLlm(
+                  providerType: providerType,
+                  baseUrl: baseUrl,
+                  modelId: model.modelId,
+                  messages: [
+                    const ChatMessage(
+                      role: 'system',
+                      content: AppConstants.systemPrompt,
+                    ),
+                    ChatMessage(role: 'user', content: request),
+                  ],
+                  apiKey: command.apiKey,
+                  parameters: model.parameters,
                 );
+                break;
+              } catch (e) {
+                if (attempt < AppConstants.maxRetries) {
+                  final waitSeconds = pow(2, attempt).toInt();
+                  _emitLog(
+                    'LLM call failed (attempt ${attempt + 1}/${AppConstants.maxRetries + 1}), '
+                    'retrying in ${waitSeconds}s: $e',
+                    level: LogLevel.warn,
+                  );
+                  await Future.delayed(Duration(seconds: waitSeconds));
+                } else {
+                  stats = stats.copyWith(failedApiCalls: stats.failedApiCalls + 1);
+                  _emitLog(
+                    'LLM call failed after ${AppConstants.maxRetries + 1} attempts at '
+                    'rep=$rep, prompt=$promptName, chunk=${chunkIndex + 1}. Skipping.',
+                    level: LogLevel.error,
+                    details: e.toString(),
+                  );
+                }
               }
+            }
 
+            if (response == null) {
               callCounter++;
-              stats = stats.copyWith(
-                completedApiCalls: callCounter,
-                processedItems: min(
-                  command.items.length,
-                  callCounter * config.chunkSettings.chunkSize,
-                ),
-                totalInputTokens:
-                    stats.totalInputTokens + response.inputTokens,
-                totalOutputTokens:
-                    stats.totalOutputTokens + response.outputTokens,
-              );
-
               final progressPercent = totalApiCalls == 0
                   ? 100.0
                   : (callCounter / totalApiCalls) * 100.0;
-
-              final progress = BatchProgress(
+              _emitEvent(ProgressEvent(BatchProgress(
                 currentRepetition: rep,
                 totalRepetitions: config.chunkSettings.repetitions,
                 currentPromptIndex: promptIndex + 1,
@@ -272,32 +312,103 @@ class _WorkerRuntime {
                 progressPercent: progressPercent,
                 currentModelId: model.modelId,
                 currentPromptName: promptName,
-              );
+              )));
+              continue;
+            }
 
-              _emitEvent(ProgressEvent(progress));
-              _emitLog(
-                'Call $callCounter/$totalApiCalls completed '
-                '(rep=$rep, prompt=$promptName, chunk=${chunkIndex + 1}/${chunks.length}).',
-              );
-
-              if (callCounter % AppConstants.defaultCheckpointInterval == 0) {
-                await _checkpointService.saveCheckpoint(
-                  projectPath: command.projectPath,
-                  batchId: config.batchId,
-                  progress: progress,
-                  stats: stats,
-                  config: config,
-                  results: results,
-                );
-                _emitEvent(CheckpointSavedEvent(callCounter));
+            final parsed = _jsonParserService.parseResponse(
+              response.content,
+              debugDir:
+                  '${command.projectPath}/results/${config.batchId}/debug',
+            );
+            if (parsed != null) {
+              // F1: Rename result keys with naming convention
+              // fieldName_from_templateName_rep_N
+              final templateBaseName =
+                  promptName.replaceAll(RegExp(r'\.[^.]+$'), '');
+              final suffix = '_from_${templateBaseName}_rep_$rep';
+              for (final row in parsed) {
+                final tagged = <String, dynamic>{};
+                for (final entry in row.entries) {
+                  tagged['${entry.key}$suffix'] = entry.value;
+                }
+                results.add(tagged);
               }
-            } catch (e) {
-              stats = stats.copyWith(failedApiCalls: stats.failedApiCalls + 1);
-              _emitError(
-                'LLM call failed at rep=$rep, prompt=$promptName, chunk=${chunkIndex + 1}.',
-                details: e.toString(),
+            } else {
+              _emitLog(
+                'No parseable JSON for prompt "$promptName" in chunk ${chunkIndex + 1}.',
+                level: LogLevel.warn,
               );
-              return;
+              // Mark items in chunk as missing (F1)
+              final templateBaseName =
+                  promptName.replaceAll(RegExp(r'\.[^.]+$'), '');
+              for (final item in chunk) {
+                results.add(<String, dynamic>{
+                  'ID': item.id,
+                  'MissingInResponse_from_${templateBaseName}_rep_$rep': true,
+                });
+              }
+            }
+
+            callCounter++;
+            // H7: Calculate cost from tokens and pricing
+            final callCost =
+                (response.inputTokens * command.inputPricePerMillion +
+                    response.outputTokens * command.outputPricePerMillion) /
+                1000000.0;
+            stats = stats.copyWith(
+              completedApiCalls: callCounter,
+              processedItems: min(
+                command.items.length,
+                callCounter * config.chunkSettings.chunkSize,
+              ),
+              totalInputTokens:
+                  stats.totalInputTokens + response.inputTokens,
+              totalOutputTokens:
+                  stats.totalOutputTokens + response.outputTokens,
+              totalCost: stats.totalCost + callCost,
+            );
+
+            final progressPercent = totalApiCalls == 0
+                ? 100.0
+                : (callCounter / totalApiCalls) * 100.0;
+
+            final progress = BatchProgress(
+              currentRepetition: rep,
+              totalRepetitions: config.chunkSettings.repetitions,
+              currentPromptIndex: promptIndex + 1,
+              totalPrompts: config.promptFiles.length,
+              currentChunkIndex: chunkIndex + 1,
+              totalChunks: chunks.length,
+              callCounter: callCounter,
+              progressPercent: progressPercent,
+              currentModelId: model.modelId,
+              currentPromptName: promptName,
+            );
+
+            _emitEvent(ProgressEvent(progress));
+            _emitLog(
+              'Call $callCounter/$totalApiCalls completed '
+              '(rep=$rep, prompt=$promptName, chunk=${chunkIndex + 1}/${chunks.length}).',
+            );
+
+            if (callCounter % AppConstants.defaultCheckpointInterval == 0) {
+              await _checkpointService.saveCheckpoint(
+                projectPath: command.projectPath,
+                batchId: config.batchId,
+                progress: progress,
+                stats: stats,
+                config: config,
+                results: results,
+              );
+              _emitEvent(CheckpointSavedEvent(callCounter));
+            }
+
+            // Configurable request delay between API calls (F4)
+            if (config.chunkSettings.requestDelaySeconds > 0) {
+              await Future.delayed(
+                Duration(seconds: config.chunkSettings.requestDelaySeconds),
+              );
             }
           }
         }
@@ -346,8 +457,8 @@ class _WorkerRuntime {
       LogEvent(
         LogEntry(
           level: level,
-          message: message,
-          details: details,
+          message: maskSecrets(message),
+          details: details != null ? maskSecrets(details) : null,
           timestamp: DateTime.now(),
         ),
       ),
@@ -356,7 +467,10 @@ class _WorkerRuntime {
 
   void _emitError(String message, {String? details}) {
     _emitLog(message, level: LogLevel.error, details: details);
-    _emitEvent(BatchErrorEvent(message: message, details: details));
+    _emitEvent(BatchErrorEvent(
+      message: maskSecrets(message),
+      details: details != null ? maskSecrets(details) : null,
+    ));
   }
 }
 

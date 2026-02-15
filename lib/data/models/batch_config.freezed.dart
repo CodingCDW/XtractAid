@@ -662,6 +662,7 @@ mixin _$ChunkSettings {
   int get chunkSize => throw _privateConstructorUsedError;
   int get repetitions => throw _privateConstructorUsedError;
   bool get shuffleBetweenReps => throw _privateConstructorUsedError;
+  int get requestDelaySeconds => throw _privateConstructorUsedError;
 
   /// Serializes this ChunkSettings to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -680,7 +681,12 @@ abstract class $ChunkSettingsCopyWith<$Res> {
     $Res Function(ChunkSettings) then,
   ) = _$ChunkSettingsCopyWithImpl<$Res, ChunkSettings>;
   @useResult
-  $Res call({int chunkSize, int repetitions, bool shuffleBetweenReps});
+  $Res call({
+    int chunkSize,
+    int repetitions,
+    bool shuffleBetweenReps,
+    int requestDelaySeconds,
+  });
 }
 
 /// @nodoc
@@ -701,6 +707,7 @@ class _$ChunkSettingsCopyWithImpl<$Res, $Val extends ChunkSettings>
     Object? chunkSize = null,
     Object? repetitions = null,
     Object? shuffleBetweenReps = null,
+    Object? requestDelaySeconds = null,
   }) {
     return _then(
       _value.copyWith(
@@ -716,6 +723,10 @@ class _$ChunkSettingsCopyWithImpl<$Res, $Val extends ChunkSettings>
                 ? _value.shuffleBetweenReps
                 : shuffleBetweenReps // ignore: cast_nullable_to_non_nullable
                       as bool,
+            requestDelaySeconds: null == requestDelaySeconds
+                ? _value.requestDelaySeconds
+                : requestDelaySeconds // ignore: cast_nullable_to_non_nullable
+                      as int,
           )
           as $Val,
     );
@@ -731,7 +742,12 @@ abstract class _$$ChunkSettingsImplCopyWith<$Res>
   ) = __$$ChunkSettingsImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({int chunkSize, int repetitions, bool shuffleBetweenReps});
+  $Res call({
+    int chunkSize,
+    int repetitions,
+    bool shuffleBetweenReps,
+    int requestDelaySeconds,
+  });
 }
 
 /// @nodoc
@@ -751,6 +767,7 @@ class __$$ChunkSettingsImplCopyWithImpl<$Res>
     Object? chunkSize = null,
     Object? repetitions = null,
     Object? shuffleBetweenReps = null,
+    Object? requestDelaySeconds = null,
   }) {
     return _then(
       _$ChunkSettingsImpl(
@@ -766,6 +783,10 @@ class __$$ChunkSettingsImplCopyWithImpl<$Res>
             ? _value.shuffleBetweenReps
             : shuffleBetweenReps // ignore: cast_nullable_to_non_nullable
                   as bool,
+        requestDelaySeconds: null == requestDelaySeconds
+            ? _value.requestDelaySeconds
+            : requestDelaySeconds // ignore: cast_nullable_to_non_nullable
+                  as int,
       ),
     );
   }
@@ -778,6 +799,7 @@ class _$ChunkSettingsImpl implements _ChunkSettings {
     this.chunkSize = 10,
     this.repetitions = 1,
     this.shuffleBetweenReps = true,
+    this.requestDelaySeconds = 0,
   });
 
   factory _$ChunkSettingsImpl.fromJson(Map<String, dynamic> json) =>
@@ -792,10 +814,13 @@ class _$ChunkSettingsImpl implements _ChunkSettings {
   @override
   @JsonKey()
   final bool shuffleBetweenReps;
+  @override
+  @JsonKey()
+  final int requestDelaySeconds;
 
   @override
   String toString() {
-    return 'ChunkSettings(chunkSize: $chunkSize, repetitions: $repetitions, shuffleBetweenReps: $shuffleBetweenReps)';
+    return 'ChunkSettings(chunkSize: $chunkSize, repetitions: $repetitions, shuffleBetweenReps: $shuffleBetweenReps, requestDelaySeconds: $requestDelaySeconds)';
   }
 
   @override
@@ -808,13 +833,20 @@ class _$ChunkSettingsImpl implements _ChunkSettings {
             (identical(other.repetitions, repetitions) ||
                 other.repetitions == repetitions) &&
             (identical(other.shuffleBetweenReps, shuffleBetweenReps) ||
-                other.shuffleBetweenReps == shuffleBetweenReps));
+                other.shuffleBetweenReps == shuffleBetweenReps) &&
+            (identical(other.requestDelaySeconds, requestDelaySeconds) ||
+                other.requestDelaySeconds == requestDelaySeconds));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, chunkSize, repetitions, shuffleBetweenReps);
+  int get hashCode => Object.hash(
+    runtimeType,
+    chunkSize,
+    repetitions,
+    shuffleBetweenReps,
+    requestDelaySeconds,
+  );
 
   /// Create a copy of ChunkSettings
   /// with the given fields replaced by the non-null parameter values.
@@ -835,6 +867,7 @@ abstract class _ChunkSettings implements ChunkSettings {
     final int chunkSize,
     final int repetitions,
     final bool shuffleBetweenReps,
+    final int requestDelaySeconds,
   }) = _$ChunkSettingsImpl;
 
   factory _ChunkSettings.fromJson(Map<String, dynamic> json) =
@@ -846,6 +879,8 @@ abstract class _ChunkSettings implements ChunkSettings {
   int get repetitions;
   @override
   bool get shuffleBetweenReps;
+  @override
+  int get requestDelaySeconds;
 
   /// Create a copy of ChunkSettings
   /// with the given fields replaced by the non-null parameter values.

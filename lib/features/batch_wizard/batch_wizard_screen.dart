@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
@@ -25,6 +26,8 @@ import 'steps/step_confirm.dart';
 import 'steps/step_items.dart';
 import 'steps/step_model.dart';
 import 'steps/step_prompts.dart';
+
+final _log = Logger('BatchWizardScreen');
 
 class BatchWizardScreen extends ConsumerStatefulWidget {
   const BatchWizardScreen({super.key, required this.projectId});
@@ -145,7 +148,8 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
         _currentParameters = params;
         _parameterValues = defaults;
       });
-    } catch (_) {
+    } catch (e) {
+      _log.warning('Failed to load initial data', e);
       if (!mounted) {
         return;
       }
@@ -335,8 +339,11 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
           _parseWarnings = warnings;
         });
       }
-    } catch (_) {
-      _showError(S.of(context)!.batchWizardLoadItems);
+    } catch (e) {
+      _log.warning('Failed to parse items', e);
+      if (mounted) {
+        _showError(S.of(context)!.batchWizardLoadItems);
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -494,8 +501,9 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
       }
 
       context.go('/projects/${project.id}/batch/$batchId');
-    } catch (_) {
-      _showError(S.of(context)!.batchWizardSaveError);
+    } catch (e) {
+      _log.warning('Failed to start batch', e);
+      if (mounted) _showError(S.of(context)!.batchWizardSaveError);
     } finally {
       if (mounted) {
         setState(() {

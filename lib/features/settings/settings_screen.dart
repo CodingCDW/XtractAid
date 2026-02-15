@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -288,31 +289,60 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       return;
                     }
 
+                    // Transactional re-encryption:
+                    // 1. Decrypt all keys with old password
+                    enc.unlock(currentController.text, salt);
+                    final providers = await db.providersDao.getAll();
+                    final decryptedKeys = <String, String>{};
+                    try {
+                      for (final p in providers) {
+                        if (p.encryptedApiKey != null) {
+                          decryptedKeys[p.id] =
+                              enc.decryptData(p.encryptedApiKey!);
+                        }
+                      }
+                    } catch (e) {
+                      setDialogState(() {
+                        errorText =
+                            'Failed to decrypt existing keys. Password not changed.';
+                      });
+                      return;
+                    }
+
+                    // 2. Set new password
                     final newSalt = enc.generateSalt();
                     final newHash =
                         enc.hashPassword(newController.text, newSalt);
+
+                    // 3. Re-encrypt all keys with new password
+                    enc.unlock(newController.text, newSalt);
+                    final reEncrypted = <String, Uint8List>{};
+                    try {
+                      for (final entry in decryptedKeys.entries) {
+                        reEncrypted[entry.key] =
+                            enc.encryptData(entry.value);
+                      }
+                    } catch (e) {
+                      // Rollback: restore old encryption state
+                      enc.unlock(currentController.text, salt);
+                      setDialogState(() {
+                        errorText =
+                            'Re-encryption failed. Password not changed.';
+                      });
+                      return;
+                    }
+
+                    // 4. Persist atomically: hash first, then keys
                     await db.settingsDao.setValue('password_hash', newHash);
                     await db.settingsDao
                         .setValue('password_salt', base64Encode(newSalt));
-
-                    enc.unlock(currentController.text, salt);
-                    final providers = await db.providersDao.getAll();
-
-                    enc.unlock(currentController.text, salt);
-                    for (final p in providers) {
-                      if (p.encryptedApiKey != null) {
-                        final plainKey = enc.decryptData(p.encryptedApiKey!);
-                        enc.unlock(newController.text, newSalt);
-                        final newBlob = enc.encryptData(plainKey);
-                        await db.providersDao.updateProvider(
-                          p.id,
-                          ProvidersCompanion(encryptedApiKey: Value(newBlob)),
-                        );
-                        enc.unlock(currentController.text, salt);
-                      }
+                    for (final entry in reEncrypted.entries) {
+                      await db.providersDao.updateProvider(
+                        entry.key,
+                        ProvidersCompanion(
+                            encryptedApiKey: Value(entry.value)),
+                      );
                     }
-
-                    enc.unlock(newController.text, newSalt);
 
                     if (context.mounted) Navigator.of(context).pop(true);
                   },

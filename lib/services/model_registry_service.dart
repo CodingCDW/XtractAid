@@ -14,6 +14,8 @@ import '../data/models/provider_config.dart';
 /// Priority: Bundled < Remote < User Overrides
 class ModelRegistryService {
   static final _log = Logger('ModelRegistryService');
+  // M7: In-memory cache TTL (1 hour) separate from remote fetch interval
+  static const Duration _inMemoryCacheTtl = Duration(hours: 1);
   final AppDatabase _db;
   final Dio _dio;
 
@@ -62,8 +64,7 @@ class ModelRegistryService {
   }) async {
     // Check cache
     if (!forceRefresh && _cache.isNotEmpty && _cacheUpdated != null) {
-      if (DateTime.now().difference(_cacheUpdated!) <
-          AppConstants.registryCacheDuration) {
+      if (DateTime.now().difference(_cacheUpdated!) < _inMemoryCacheTtl) {
         return _cache;
       }
     }
@@ -94,10 +95,17 @@ class ModelRegistryService {
 
     // Apply user overrides (highest priority)
     final userOverrides = await getUserOverrides();
-    final models = registry['models'] as Map<String, dynamic>;
+    final modelsRaw = registry['models'];
+    final models = modelsRaw is Map<String, dynamic>
+        ? modelsRaw
+        : <String, dynamic>{};
+    if (modelsRaw is! Map) {
+      registry['models'] = models;
+    }
     for (final entry in userOverrides.entries) {
-      if (models.containsKey(entry.key)) {
-        (models[entry.key] as Map).addAll(entry.value);
+      final existing = models[entry.key];
+      if (existing is Map<String, dynamic>) {
+        existing.addAll(entry.value);
       } else {
         models[entry.key] = entry.value;
       }

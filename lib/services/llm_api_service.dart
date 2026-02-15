@@ -180,7 +180,11 @@ class LlmApiService {
     );
 
     final data = response.data as Map<String, dynamic>;
-    final choice = (data['choices'] as List).first as Map<String, dynamic>;
+    final choices = data['choices'] as List?;
+    if (choices == null || choices.isEmpty) {
+      return const LlmResponse(content: '', finishReason: 'empty');
+    }
+    final choice = choices.first as Map<String, dynamic>;
     final message = choice['message'] as Map<String, dynamic>;
     final usage = data['usage'] as Map<String, dynamic>?;
 
@@ -294,9 +298,12 @@ class LlmApiService {
     };
 
     final response = await _dio.post(
-      '$baseUrl/models/$modelId:generateContent?key=$apiKey',
+      '$baseUrl/models/$modelId:generateContent',
       data: body,
-      options: Options(receiveTimeout: const Duration(minutes: 5)),
+      options: Options(
+        headers: {'x-goog-api-key': apiKey},
+        receiveTimeout: const Duration(minutes: 5),
+      ),
     );
 
     final data = response.data as Map<String, dynamic>;
@@ -383,7 +390,7 @@ class LlmApiService {
           await _dio.post(
             '$baseUrl/messages',
             data: {
-              'model': 'claude-3-5-haiku-20241022',
+              'model': 'claude-haiku-4-5-20251001',
               'max_tokens': 1,
               'messages': [
                 {'role': 'user', 'content': 'hi'}
@@ -400,8 +407,11 @@ class LlmApiService {
           return true;
         case 'google':
           await _dio.get(
-            '$baseUrl/models?key=$apiKey',
-            options: Options(receiveTimeout: const Duration(seconds: 10)),
+            '$baseUrl/models',
+            options: Options(
+              headers: {'x-goog-api-key': apiKey ?? ''},
+              receiveTimeout: const Duration(seconds: 10),
+            ),
           );
           return true;
         case 'ollama':

@@ -13,6 +13,8 @@ class StartBatchCommand extends WorkerCommand {
     required this.projectPath,
     this.apiKey,
     this.providerBaseUrls = const {},
+    this.inputPricePerMillion = 0.0,
+    this.outputPricePerMillion = 0.0,
   });
 
   final BatchConfig config;
@@ -21,6 +23,8 @@ class StartBatchCommand extends WorkerCommand {
   final String projectPath;
   final String? apiKey;
   final Map<String, String> providerBaseUrls;
+  final double inputPricePerMillion;
+  final double outputPricePerMillion;
 }
 
 class PauseBatchCommand extends WorkerCommand {}
@@ -80,6 +84,8 @@ abstract final class WorkerMessageCodec {
           'projectPath': command.projectPath,
           'apiKey': command.apiKey,
           'providerBaseUrls': command.providerBaseUrls,
+          'inputPricePerMillion': command.inputPricePerMillion,
+          'outputPricePerMillion': command.outputPricePerMillion,
         },
       PauseBatchCommand() => {'type': 'pause'},
       ResumeBatchCommand() => {'type': 'resume'},
@@ -120,6 +126,10 @@ abstract final class WorkerMessageCodec {
                     (key, value) => MapEntry(key.toString(), value.toString()),
                   ) ??
               const {},
+          inputPricePerMillion:
+              (payload['inputPricePerMillion'] as num?)?.toDouble() ?? 0.0,
+          outputPricePerMillion:
+              (payload['outputPricePerMillion'] as num?)?.toDouble() ?? 0.0,
         );
       case 'pause':
         return PauseBatchCommand();

@@ -41,6 +41,7 @@ class ChunkSettings with _$ChunkSettings {
     @Default(10) int chunkSize,
     @Default(1) int repetitions,
     @Default(true) bool shuffleBetweenReps,
+    @Default(0) int requestDelaySeconds,
   }) = _ChunkSettings;
 
   factory ChunkSettings.fromJson(Map<String, dynamic> json) =>

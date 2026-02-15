@@ -6,10 +6,13 @@
 |-------|--------|-------------|
 | Phase 0: Spec-Updates | ERLEDIGT | Alle 3 Spec-Dokumente auf Flutter/Dart aktualisiert |
 | Phase 1: Foundation | ERLEDIGT | Projekt, DB, Models, Encryption, Registry, App-Shell, Navigation. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
-| Phase 2: Core Services | ERLEDIGT | 8 Services implementiert. `dart analyze`: 0 Fehler, `flutter build windows`: OK |
-| Phase 3: Frontend Core | ERLEDIGT | 3.1-3.5 umgesetzt (Setup, Auth, Projects, Batch Wizard, Shared Widgets) |
-| Phase 4: Integration | ERLEDIGT | 4.1-4.6 vollstaendig implementiert (Worker, Execution Screen, Reports, Model Manager). Code-Generierung (freezed/drift) laeuft. |
-| Phase 5: Polish | IN ARBEIT | 5.1 Lokalisierung ERLEDIGT, 5.2 Settings ERLEDIGT, 5.3 Fehlerbehandlung+UX ERLEDIGT, 5.4 Unit Tests (4 Services) ERLEDIGT. Offen: Widget/Integration Tests, Distribution, Pipeline Hardening |
+| Phase 2: Core Services | ERLEDIGT | 9 Services implementiert (inkl. `pdf_ocr_service.dart` Stub). Kritische Bugs K1-K5 behoben, Haertung H1-H8 abgeschlossen |
+| Phase 3: Frontend Core | ERLEDIGT | 3.1-3.5 umgesetzt. Stille `catch (_)` durch Logging ersetzt (M8), `mounted`-Checks ergaenzt (M10) |
+| Phase 4: Integration | ERLEDIGT | 4.1-4.6 implementiert. Worker-Retry (K4), Checkpoint bei Stop (H2), Race Condition behoben (K6), Kostenberechnung (H7) |
+| Phase 5: Polish | IN ARBEIT | 5.1-5.4 ERLEDIGT. 5.9 Bug-Fixes ERLEDIGT (K1-K7, H1-H8, M2-M8/M10). 5.10 P0-Features ERLEDIGT (F1-F4, F12, F13). Offen: Widget/Integration Tests (5.4b), Distribution (5.5), Lokalisierungsluecken (5.1b) |
+| -- Code Review | ERLEDIGT | 2025-02-15: Umfassender Review. 18+ Bugs identifiziert |
+| -- Bug-Fix-Runde | ERLEDIGT | 2026-02-15: Alle kritischen (7/7), hohen (8/8) und mittleren (8/10) Bugs behoben. `dart analyze`: **0 Errors/0 Warnings/0 Info**. `flutter test`: **61/61** |
+| -- PRD-Abgleich | ERLEDIGT | 2025-02-15: 13 Features geprueft. P0-Features (F1-F4) implementiert. F12+F13 fertig. Offen: P1-Features (F5-F9), teilweise Features (F10, F11) |
 
 ---
 
@@ -143,6 +146,7 @@ Alle in `lib/data/models/`. Jede hat `fromJson`/`toJson`:
 | `PromptService` | `prompt_service.dart` | `loadPrompts(promptsDir)` -> Map<name,content>, `hasPlaceholder(text)`, `injectItems(template, items)`, `validatePrompt(text)`, `createChunks(items, chunkSize)` | Batch Wizard Schritt 2, Batch Worker |
 | `ProjectFileService` | `project_file_service.dart` | `createProject(path, name, projectId)`, `validateProject(path)` -> Map?, `promptsDir(path)`, `inputDir(path)`, `resultsDir(path)` | Project Manager |
 | `LmStudioCliService` | `lm_studio_cli_service.dart` | `loadModel(modelId, onProgress)`, `waitForServer(baseUrl, timeout, pollInterval)`, `isCliAvailable()` | LM Studio Provider-Setup, Model Manager (Discovered-Tab) |
+| `PdfOcrService` | `pdf_ocr_service.dart` | `ocrPdf(pdfPath)` -> String? (Stub, liefert `null`) | FileParserService (OCR-Fallback, Phase 5.6.2) |
 
 ### Riverpod Providers (alle in `lib/providers/`)
 
@@ -180,13 +184,12 @@ Nach erfolgreicher Passwort-Eingabe navigiert `/auth` zu `/projects`.
 
 ### Platzhalter-Screens
 
-Folgender Screen ist aktuell noch ein Platzhalter und muss in Phase 5 durch eine echte Implementierung ersetzt werden:
+Alle urspruenglichen Platzhalter-Screens sind inzwischen implementiert:
 
-| Screen | Datei | Phase |
-|--------|-------|-------|
-| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Phase 5.2 |
-
-**Hinweis:** `ModelManagerScreen` war in Phase 4.6 als Platzhalter gelistet, ist inzwischen vollstaendig implementiert (3 Tabs: Registry, Custom, Discovered).
+| Screen | Datei | Status |
+|--------|-------|--------|
+| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Implementiert (Phase 5.2), Bug offen (5.9.1 K7) |
+| `ModelManagerScreen` | `lib/features/model_manager/model_manager_screen.dart` | Implementiert (Phase 4.6), Lokalisierungsluecken (5.9.3) |
 
 ### Konstanten
 
@@ -593,11 +596,11 @@ Dies ist das Herzstueck der App. Ein langlebiger Isolate, der:
 3 Formate:
 
 **Excel (P0, aktueller Stand):**
-- Aktuell: `syncfusion_flutter_xlsio` -> `Workbook`, `Worksheet`
+- Nutzt `excel` (MIT, v4.0.6) -- Syncfusion vollstaendig entfernt
 - Erste Zeile: Header (ID + alle JSON-Keys aus den Ergebnissen)
 - Jede weitere Zeile: ein Item mit seinen Ergebnis-Werten
-- Speichern: `File('$resultsDir/results.xlsx').writeAsBytesSync(workbook.saveAsStream())`
-- Geplante Migration in Phase 5.6.4: Umstieg auf `excel` (MIT), um proprietaere Lizenzrisiken zu entfernen.
+- Speichern: `File('$resultsDir/results.xlsx').writeAsBytesSync(workbook.encode()!)`
+- **Bekanntes Problem (Code Review):** File-Write ohne try/catch (Phase 5.9.2 H6)
 
 **Markdown Log (P0):**
 - Session-Info (Start, Ende, Dauer, Status)
@@ -629,20 +632,29 @@ Jedes Model hat einen Detail-Dialog mit allen Feldern (Pricing, Parameters, Capa
 
 ## Phase 5: Polish -- IN ARBEIT
 
-### 5.1 Lokalisierung (DE/EN) -- ERLEDIGT
+### 5.1 Lokalisierung (DE/EN) -- ERLEDIGT (Luecken offen)
 - ARB-Dateien unter `lib/core/l10n/`: `app_de.arb` (Template), `app_en.arb` (200+ Keys)
 - `l10n.yaml` Konfiguration, Output-Klasse `S` in `lib/core/l10n/generated/`
 - `localeProvider` + `localeLoaderProvider` in `providers/settings_provider.dart`
 - `app.dart` mit `locale`, `localizationsDelegates`, `supportedLocales` verdrahtet
 - 27 UI-Dateien lokalisiert: Shell, Settings, Auth, Setup Wizard (6 Steps), Projects (5 Dateien), Batch Wizard (6 Dateien), Batch Execution, Model Manager, 6 Shared Widgets
 - `dart analyze`: 0 Errors/Warnings, `flutter test`: 61/61 bestanden
+- **Bekannte Luecken (Code Review 2025-02-15):**
+  - `password_screen.dart:100` -- hardcodiertes `'Fortfahren'`
+  - `batch_execution_screen.dart:85,105,181,182` -- hardcodierte englische Labels (`'Batch Execution'`, `'Batch ID:'`, `'Current Prompt Name:'`, `'Current Model:'`)
+  - `model_manager_screen.dart:141,145` -- hardcodiertes `'Bearbeiten'`, `'Loeschen'`
+  - `project_detail_screen.dart` -- hardcodierte `'Keine Prompt-Dateien gefunden'`, `'Keine Input-Dateien gefunden'`
+  - `prompt_selector.dart:26,115` -- hardcodiertes `'Verfuegbar'`, `'Ausgewaehlt'`
+  - `batch_wizard_screen.dart:329` -- hardcodiertes `'Fertig'`
+  - `settings_provider.dart:16` -- hardcodierter Default `Locale('de')` statt System-Locale-Erkennung
 
-### 5.2 Settings Screen -- ERLEDIGT
+### 5.2 Settings Screen -- ERLEDIGT (Bug offen)
 - `lib/features/settings/settings_screen.dart` vollstaendig implementiert (war Platzhalter)
 - 5 Abschnitte: Allgemein (Sprache), Sicherheit (Passwort aendern + Provider verwalten), Datenschutz (Strict Local Mode), Erweitert (Checkpoint-Intervall Slider), Reset
 - Passwort-Aenderung mit Verifikation und automatischer Re-Verschluesselung aller API-Keys
 - Provider-Verwaltungsdialog mit Enable/Disable Toggle und Delete
 - App-Reset mit Bestaetigungsdialog
+- **Bug (Code Review 2025-02-15):** Re-Verschluesselung bei Passwort-Aenderung (Zeilen 298-315) ist nicht transaktional. Wenn die Re-Verschluesselung eines Providers fehlschlaegt, bleibt der Encryption-State inkonsistent. Loesung: Erst alle Keys entschluesseln, dann neues Passwort setzen, dann alle Keys re-verschluesseln. Rollback bei Fehler.
 
 ### 5.3 Fehlerbehandlung + UX -- ERLEDIGT
 - Globaler Error Handler in `main.dart`: `FlutterError.onError` + `PlatformDispatcher.instance.onError` mit `logging`-basiertem Output
@@ -657,7 +669,15 @@ Jedes Model hat einen Detail-Dialog mit allen Feldern (Pricing, Parameters, Capa
   - `prompt_service_test.dart` (12 Tests): Platzhalter, Injection, Validierung, Chunks
   - `token_estimation_service_test.dart` (10 Tests): Tokenizer, Batch-Kosten, Call-Kosten
 - **Null-Safety-Fix** in `ModelRegistryService`: Sichere `is Map`-Checks statt unsicherer Casts, Logging statt stiller `catch (_)`
-- Offen: Widget Tests (`test/widgets/`), Integration Tests (`integration_test/`)
+- **Verifiziert (Code Review 2025-02-15):** `flutter test`: 61/61 bestanden, 0 Fehler
+- **Offen -- Widget Tests** (`test/widgets/`): Keine vorhanden. Prioritaet:
+  - Setup Wizard: Passwort-Validierung, Provider-Auswahl, Verbindungstest
+  - Batch Wizard: Item-Parsing, Prompt-Auswahl, Kosten-Schaetzung
+  - Settings: Passwort-Aenderung, Provider-Toggle, Reset
+  - Auth: Passwort-Eingabe, Fehlerfall, Reset-Flow
+- **Offen -- Integration Tests** (`integration_test/`): Keine vorhanden. Prioritaet:
+  - Ende-zu-Ende: Setup -> Auth -> Projekt -> Batch -> Ergebnis
+  - Batch mit lokalem Ollama (10 Items, 1 Prompt)
 
 ### 5.5 Windows-Distribution
 - `flutter build windows --release`
@@ -708,19 +728,22 @@ Ziel: Die Risiken DOCX-Qualitaet, komplexe PDF-Extraktion, ungenaue Token-Schaet
 - Buildgroesse steuern: OCR als optionaler Add-on-Installer/Build-Flavor, Standard-Release ohne OCR-Ballast.
 - Akzeptanzkriterium: Komplexe PDF-Suite (mind. 20 Dateien) mit signifikant weniger Leer-/Garbage-Extraktionen gegenueber aktuellem Stand.
 
-#### 5.6.3 Praezise Token-Schaetzung
-- `TokenEstimationService` von `chars/4` auf `tiktoken_tokenizer_gpt4o_o1` umstellen.
-- Modell-Mapping pflegen (z.B. GPT-4o/o1 -> `o200k_base`) und klaren Fallback fuer unbekannte Modelle definieren.
-- Live-Counter durch Caching (Hash aus Prompt+Input) performant halten.
-- UI-Hinweis von "ungefaehr" auf "modellbasiert geschaetzt" umstellen.
+#### 5.6.3 Praezise Token-Schaetzung -- TEILWEISE ERLEDIGT
+- **Erledigt:** `tiktoken_tokenizer_gpt4o_o1` ist in `pubspec.yaml` und `TokenEstimationService` integriert. Primaer wird `o200k_base` Tokenizer verwendet.
+- **Erledigt:** Caching via `_tokenCache` mit Hash aus `(modelId, text)` vorhanden.
+- **Offen:** Fallback auf `chars/4` ist noch aktiv (Zeile 39) -- sollte geloggt werden wenn Fallback greift.
+- **Offen:** Modell-Mapping fuer Nicht-OpenAI-Modelle fehlt (Anthropic, Google, Ollama nutzen immer Fallback).
+- **Offen:** Cache-Eviction ist `clear()` bei >1000 Eintraegen statt LRU -- bei grossen Batches ineffizient.
+- **Offen:** Magic Number 16 (Formatting-Overhead) in `estimateBatchCost()` nicht dokumentiert.
+- **Offen:** UI-Hinweis von "ungefaehr" auf "modellbasiert geschaetzt" umstellen.
 - Akzeptanzkriterium: mittlere Abweichung <= 3% gegenueber API-Usage bei Referenz-Testset (mind. 100 Prompts).
 
-#### 5.6.4 Syncfusion-Lizenzrisiko eliminieren
-- `syncfusion_flutter_xlsio` und `syncfusion_flutter_pdf` aus `pubspec.yaml` entfernen.
-- Excel-Export in `ReportGeneratorService` auf `excel` (MIT) migrieren.
-- PDF-Verarbeitung vollstaendig auf `pdfrx` + optional `pdf_ocr` umstellen.
-- CI-Lizenz-Guard einfuehren (Allowlist: MIT/BSD/Apache-2.0; Build fail bei Abweichung).
-- Akzeptanzkriterium: keine Syncfusion-Abhaengigkeiten mehr in `pubspec.lock`, Release-Build weiterhin erfolgreich.
+#### 5.6.4 Syncfusion-Lizenzrisiko eliminieren -- ERLEDIGT
+- **Erledigt:** `syncfusion_flutter_xlsio` und `syncfusion_flutter_pdf` sind NICHT in `pubspec.yaml` oder `pubspec.lock`.
+- **Erledigt:** Excel-Export in `ReportGeneratorService` nutzt `excel` (MIT, v4.0.6).
+- **Erledigt:** PDF-Verarbeitung nutzt `pdfrx` (MIT, v1.1.22) + Stub `PdfOcrService`.
+- **Erledigt:** CI-Lizenz-Guard vorhanden: `scripts/check_dependency_allowlist.dart`.
+- **Verifiziert (Code Review 2025-02-15):** `grep -i syncfusion pubspec.lock` -> keine Treffer.
 
 ### 5.7 Qualitaets-, Build- und Compliance-Gates (NEU)
 - Regressionstests fuer `FileParserService` und `TokenEstimationService` in CI verpflichtend.
@@ -760,6 +783,113 @@ Ziel: Die Risiken DOCX-Qualitaet, komplexe PDF-Extraktion, ungenaue Token-Schaet
   1. Release-Ordner zippen.
   2. Upload als GitHub Release auf Tag `v*`.
   3. QA testet portable ZIP (entpacken, EXE starten).
+
+### 5.9 Bug-Fixes und Haertung (Code Review 2025-02-15, Prioritaet P0)
+
+Ergebnis des umfassenden Code Reviews. Alle Issues sind nach Schweregrad sortiert und muessen vor dem ersten Release behoben werden.
+
+#### 5.9.1 KRITISCH -- Blockiert Produktion -- **ALLE BEHOBEN**
+
+| # | Datei | Problem | Loesung | Status |
+|---|-------|---------|---------|--------|
+| K1 | `file_parser_service.dart` | `Excel.decodeBytes()` ohne try/catch -- App crasht bei korrupten Excel-Dateien | try/catch mit benutzerfreundlicher Fehlermeldung | **ERLEDIGT** |
+| K2 | `file_parser_service.dart` | `compute()` fuer DOCX-Parsing hat kein Timeout -- UI friert bei grossen/defekten Dateien ein | 30-Sekunden `.timeout()` auf `compute()` mit `TimeoutException`-Handling | **ERLEDIGT** |
+| K3 | `file_parser_service.dart` | Sheet-Name existiert nicht -> Null-Pointer-Crash auf `.rows` | `tables.isEmpty` + `containsKey(sheetName)` Check | **ERLEDIGT** |
+| K4 | `batch_execution_worker.dart` | Einzelner API-Fehler bricht gesamten Batch ab -- kein Retry, kein Skip | Retry-Loop (maxRetries, exponential backoff), dann Skip+Continue, `failedApiCalls` zaehlen | **ERLEDIGT** |
+| K5 | `llm_api_service.dart` | Google API-Key im URL-Query-Parameter sichtbar (`?key=$apiKey`) | API-Key in Header `x-goog-api-key` verschoben | **ERLEDIGT** |
+| K6 | `batch_execution_provider.dart` | Race Condition: `state` wird VOR Command-Senden geaendert (pause/resume/stop) | Null/Running-Guard vor Command-Senden, `errorMessage` bei Stop | **ERLEDIGT** |
+| K7 | `settings_screen.dart` | Re-Verschluesselung bei Passwort-Aenderung nicht transaktional -- inkonsistenter State bei Teil-Fehler | 4-Schritt-Atomare Re-Encryption: decrypt all -> new hash -> re-encrypt all -> persist, mit Rollback | **ERLEDIGT** |
+
+#### 5.9.2 HOCH -- Vor Release beheben -- **ALLE BEHOBEN**
+
+| # | Datei | Problem | Loesung | Status |
+|---|-------|---------|---------|--------|
+| H1 | `file_parser_service.dart` | Keine Dateigroessen-Pruefung -- Memory Exhaustion bei grossen Dateien | `_checkFileSize()` mit 500 MB Limit vor jedem Parse-Aufruf | **ERLEDIGT** |
+| H2 | `batch_execution_worker.dart` | Bei Stop/Pause wird kein Checkpoint gespeichert -- Datenverlust | Checkpoint-Save vor `return` bei Stop-Request mit vollem `BatchProgress` | **ERLEDIGT** |
+| H3 | `batch_execution_worker.dart` | Kein Gesamt-Timeout fuer Batch -- haengende Batches blockieren ewig | `maxBatchDuration` (24h) Check in Worker-Loop, `AppConstants` erweitert | **ERLEDIGT** |
+| H4 | `model_registry_service.dart` | Unsichere Casts bei Remote-Registry-Merge (`addAll` auf ungepruefte Maps) | Defensive `is Map` Checks vor `addAll()` bei Providers und Models | **ERLEDIGT** |
+| H5 | `llm_api_service.dart` | `(data['choices'] as List).first` ohne Bounds-Check -- Crash bei leerer Response | `choices == null \|\| choices.isEmpty` Check, Return `LlmResponse(content: '', finishReason: 'empty')` | **ERLEDIGT** |
+| H6 | `report_generator_service.dart` | File-Write ohne try/catch -- Crash bei fehlenden Berechtigungen | `try/on FileSystemException catch` um `generateReports()` | **ERLEDIGT** |
+| H7 | `batch_execution_worker.dart` | Kosten werden im Worker nicht berechnet (nur Tokens) | Per-Call-Kostenberechnung aus `inputTokens * inputPricePerMillion + outputTokens * outputPricePerMillion`, Pricing via `StartBatchCommand` | **ERLEDIGT** |
+| H8 | `report_generator_service.dart` | Markdown-Escaping unvollstaendig (nur `\|` und `\n`) | `_escapeMd()` erweitert: `\\`, Backticks, `*`, `_`, `[`, `]` | **ERLEDIGT** |
+
+#### 5.9.3 MITTEL -- Code-Qualitaet und UX -- **8/10 BEHOBEN**
+
+| # | Datei | Problem | Loesung | Status |
+|---|-------|---------|---------|--------|
+| M1 | Diverse UI-Dateien | Services direkt instanziiert statt via Riverpod | Riverpod-Provider fuer alle Services einfuehren | Aufgeschoben (reiner Refactor, keine Funktionsaenderung) |
+| M2 | `batch_execution_provider.dart` | Hardcodierter deutscher String ("Checkpoint gespeichert bei Call...") | Englischer Log-String: "Checkpoint saved at call ..." | **ERLEDIGT** |
+| M3 | `batch_execution_provider.dart` | `stop()` setzt Status auf `failed` ohne Error-Message | `errorMessage: 'Batch stopped by user.'` gesetzt (via K6) | **ERLEDIGT** |
+| M4 | `token_estimation_service.dart` | Cache leert sich komplett bei >1000 Eintraegen | LRU-Cache via `LinkedHashMap`, Eviction des aeltesten Eintrags bei >1000 | **ERLEDIGT** |
+| M5 | `token_estimation_service.dart` | Tiktoken-Initialisierung bei Class-Load ohne Error-Handling | Lazy Init via `_getO200kTokenizer()`/`_getCl100kTokenizer()` mit try/catch und Fallback-Logging | **ERLEDIGT** |
+| M6 | `llm_api_service.dart` | Hardcodierter Test-Modellname `'claude-3-5-haiku-20241022'` | Aktualisiert auf `'claude-haiku-4-5-20251001'` | **ERLEDIGT** |
+| M7 | `model_registry_service.dart` | In-Memory-Cache wird nie invalidiert | `_inMemoryCacheTtl = Duration(hours: 1)` fuer Session-Cache | **ERLEDIGT** |
+| M8 | Diverse UI-Dateien | Stille `catch (_)` Bloecke ohne Logging | Alle `catch (_)` durch `catch (e) { _log.warning('...', e); }` ersetzt in SetupWizard + BatchWizard | **ERLEDIGT** |
+| M9 | `batch_execution_worker.dart` | Hardcodierte Default-Base-URLs fuer Provider | Aufgeschoben (URLs sind Fallbacks, tatsaechliche URLs kommen via Command) | Aufgeschoben |
+| M10 | `setup_wizard_screen.dart` + `batch_wizard_screen.dart` | `BuildContext` nach async Gap ohne `mounted`-Check | `if (mounted)` Guards vor allen `S.of(context)` nach async Gaps -- 0 Info-Meldungen in `dart analyze` | **ERLEDIGT** |
+
+#### 5.9.4 NIEDRIG -- Verbesserungen fuer spaeter
+
+| # | Datei | Problem | Loesung |
+|---|-------|---------|---------|
+| N1 | `app_theme.dart` | Nur Light-Theme vorhanden | Dark-Theme ergaenzen (Phase 6) |
+| N2 | Diverse UI-Dateien | Keine Accessibility-Labels (Semantics) | `Semantics`-Widgets fuer Screen-Reader hinzufuegen |
+| N3 | `project_card.dart` | Manuelle Datumsformatierung statt `intl` | `DateFormat` aus `intl`-Paket nutzen |
+| N4 | `app_constants.dart` | Fehlende Grenzen: `maxBatchSize`, `maxRequestSizeKb`, `maxTotalTokensPerBatch` | Sinnvolle Defaults definieren |
+| N5 | `file_parser_service.dart` | PDF-Qualitaets-Heuristik (0.7 printable, 0.05 unique) nicht dokumentiert | Magic Numbers als benannte Konstanten mit Kommentar |
+
+### 5.10 Fehlende PRD-Features (PRD-Abgleich 2025-02-15)
+
+Systematischer Vergleich der PRD (`specs/XtractAid_PRD_Final.md`) mit dem implementierten Code. Diese Features sind in der PRD spezifiziert, aber im Code nicht oder nur teilweise vorhanden.
+
+#### 5.10.1 NICHT IMPLEMENTIERT -- MVP P0 -- **ALLE IMPLEMENTIERT**
+
+| # | PRD-Ref | Feature | Beschreibung | Status |
+|---|---------|---------|-------------|--------|
+| F1 | F-EXEC-05 | **Ergebnis-Aggregation mit Namenskonvention** | Result-Keys als `fieldName_from_templateName_rep_N`, fehlende Items als `MissingInResponse_from_templateName_rep_N = true` | **ERLEDIGT** |
+| F2 | F-LOG-03 | **API-Key-Maskierung in Logs** | `maskSecrets()` in `lib/core/utils/log_masking.dart`: OpenAI, Anthropic, Google Key-Patterns -> `[REDACTED:*-key]`. Integriert in Worker `_emitLog`/`_emitError` | **ERLEDIGT** |
+| F3 | PRD 1.4 | **System-Prompt bei API-Calls** | `AppConstants.systemPrompt` als `role: 'system'` vor User-Prompt im Worker eingefuegt | **ERLEDIGT** |
+| F4 | PRD 7.3 | **Request Delay (konfigurierbar)** | `requestDelaySeconds` in `ChunkSettings` (freezed), `Future.delayed` nach jedem API-Call im Worker | **ERLEDIGT** |
+
+#### 5.10.2 NICHT IMPLEMENTIERT -- MVP P1
+
+| # | PRD-Ref | Feature | Beschreibung | Aufwand |
+|---|---------|---------|-------------|---------|
+| F5 | F-BATCH-04 | **Supervisor-Modus** | Schritt-fuer-Schritt-Bestaetigung vor jedem API-Call (fuer Tests/Debugging). Kein Code vorhanden. Benoetigt neues UI-Element + Worker-Command `ConfirmCallCommand`. | Gross |
+| F6 | F-PRIVACY-02 | **Strict-Local-Mode Lock-Icon** | Wenn `strict_local_mode = true`, soll ein Schloss-Symbol in der Titelleiste (`AppShell`) erscheinen. Remote-Provider muessen ausgegraut werden in Batch Wizard Schritt 4 und Model Manager. | Klein |
+| F7 | F-PROJ-02 | **Project-Settings in `project.xtractaid.json`** | PRD spezifiziert `settings`-Objekt in der Projektdatei: `strict_local_mode`, `default_model`, `privacy_warning_dismissed`, `language`. Aktuell werden diese nur global in der DB gespeichert, nicht pro Projekt. | Mittel |
+| F8 | 4.4 | **ResultsScreen / DataTableWidget** | PRD zeigt einen dedizierten Results-Viewer-Screen mit Sort/Filter-Tabelle. Fehlt komplett -- nach Batch-Abschluss gibt es keinen Weg, Ergebnisse in der App zu betrachten (nur via externe Excel/HTML-Dateien). | Gross |
+| F9 | D (Anhang) | **Fehlende Tastaturkuerzel** | Implementiert: Escape, Ctrl+N, Ctrl+O, F5. Fehlend: `Ctrl+S` (Speichern), `Ctrl+Shift+N` (Neuer Batch), `Ctrl+P` (Batch pausieren), `F1` (Hilfe). | Klein |
+
+#### 5.10.3 TEILWEISE IMPLEMENTIERT
+
+| # | PRD-Ref | Feature | Ist-Zustand | Delta | Status |
+|---|---------|---------|-------------|-------|--------|
+| F10 | F-REGISTRY-05 | **Remote Registry Auto-Update** | Remote-Fetch on-demand, In-Memory-Cache TTL 1h, Remote-Cache 7 Tage. | Woechentlicher Hintergrund-Check mit User-Notification fehlt | Offen |
+| F11 | F-INPUT-03 | **Folder-Loading Statistiken** | >5M-Chars-Warnung funktioniert. Item-Count wird angezeigt. | "Groesstes Dokument"-Statistik fehlt in UI | Offen |
+| F12 | F-CHKPT-04 | **Checkpoint Auto-Cleanup** | `cleanupOldCheckpoints()` wird nach `BatchCompletedEvent` im Provider automatisch getriggert (unawaited, mit Error-Handling) | -- | **ERLEDIGT** |
+| F13 | F-EXEC-03 | **Retry-Logik im Worker** | Worker hat Retry-Loop mit exponential Backoff (maxRetries), dann Skip+Continue. `failedApiCalls` werden gezaehlt. Durch K4 vollstaendig implementiert | -- | **ERLEDIGT** |
+
+#### 5.10.4 Priorisierte Reihenfolge fuer Implementierung
+
+**Sofort (vor MVP-Release) -- ALLE ERLEDIGT:**
+1. ~~F3 -- System-Prompt~~ **ERLEDIGT**
+2. ~~F2 -- Log-Maskierung~~ **ERLEDIGT**
+3. ~~F1 -- Ergebnis-Aggregation~~ **ERLEDIGT**
+4. ~~F4 -- Request Delay~~ **ERLEDIGT**
+5. ~~F12 -- Checkpoint Auto-Cleanup~~ **ERLEDIGT**
+6. ~~F13 -- Worker-Level-Recovery~~ **ERLEDIGT**
+
+**Vor Version 1.0:**
+7. F6 -- Lock-Icon fuer Strict Local Mode
+8. F9 -- Fehlende Tastaturkuerzel
+9. F7 -- Projekt-Settings in JSON
+10. F11 -- Folder-Loading Statistiken
+
+**Version 1.1:**
+11. F8 -- ResultsScreen mit DataTable
+12. F5 -- Supervisor-Modus
+13. F10 -- Remote Registry Auto-Update
 
 ---
 
@@ -837,6 +967,7 @@ lib/services/token_estimation_service.dart
 lib/services/prompt_service.dart
 lib/services/project_file_service.dart
 lib/services/lm_studio_cli_service.dart
+lib/services/pdf_ocr_service.dart                         (Stub fuer OCR-Fallback)
 ```
 
 ### Phase 3 (Frontend Core)
@@ -883,10 +1014,20 @@ lib/services/report_generator_service.dart
 lib/features/model_manager/model_manager_screen.dart
 ```
 
-### Noch Platzhalter (Phase 5)
+### Phase 5 (Polish)
 ```
-lib/features/settings/settings_screen.dart                (Platzhalter -> Phase 5.2)
-test/widget_test.dart                                     (Minimal-Test -> Phase 5.4)
+lib/features/settings/settings_screen.dart                (implementiert in Phase 5.2, K7 Atomic Re-Encryption)
+lib/core/l10n/generated/app_localizations.dart            (generiert)
+lib/core/l10n/generated/app_localizations_de.dart         (generiert)
+lib/core/l10n/generated/app_localizations_en.dart         (generiert)
+lib/core/utils/log_masking.dart                           (NEU: F2 API-Key-Maskierung)
+scripts/check_dependency_allowlist.dart                   (CI-Lizenz-Guard)
+scripts/setup_windows_build.ps1                           (Toolchain-Pruefung)
+test/services/encryption_service_test.dart
+test/services/json_parser_service_test.dart
+test/services/prompt_service_test.dart
+test/services/token_estimation_service_test.dart
+test/widget_test.dart                                     (Minimal-Test -> erweitern in Phase 5.4)
 ```
 
 ---
@@ -895,14 +1036,24 @@ test/widget_test.dart                                     (Minimal-Test -> Phase
 
 | Risiko | Mitigation | Status |
 |--------|-----------|--------|
+| ~~Batch-Worker bricht bei Einzelfehler ab~~ | Retry-Logik + Skip-and-Continue (K4) | **Erledigt** |
+| ~~API-Key im URL bei Google~~ | Header-basierte Authentifizierung (K5) | **Erledigt** |
+| ~~Daten-Korruption bei Passwort-Aenderung~~ | Transaktionale Re-Verschluesselung (K7) | **Erledigt** |
+| ~~File-Parser crasht bei korrupten Dateien~~ | Error-Handling + Timeout + Groessenprüfung (K1-K3, H1) | **Erledigt** |
 | DOCX-Parsing-Qualitaet | Erweiterter Pure-Dart-OOXML-Parser + Fallback-Logik + Testkorpus | In Arbeit (Phase 5.6.1) |
 | PDF-Textextraktion bei komplexen PDFs | `pdfrx` fuer Digital-PDF + qualitaetsgesteuerter OCR-Fallback (Feature-Flag + OCR-Service-Hook), `pdf_ocr` nur mit gruenem Toolchain-Gate | In Arbeit (Phase 5.6.2) |
 | Isolate-Kommunikation Komplexitaet | Klares sealed-class Protokoll mit WorkerMessageCodec | Erledigt (Phase 4) |
-| Token-Schaetzung ungenau (chars/4) | Umstieg auf `tiktoken_tokenizer_gpt4o_o1` + Modell-Mapping + Kalibrierungstests | Geplant (Phase 5.6.3) |
-| Syncfusion Lizenz | Vollstaendige Migration auf MIT/Apache-Stack (`excel`, `pdfrx`, optional `pdf_ocr`) + CI-Lizenz-Guard | In Arbeit (Phase 5.6.4) |
+| Token-Schaetzung ungenau (Fallback chars/4) | Tiktoken integriert mit Lazy-Init (M5), LRU-Cache (M4). Fallback fuer Nicht-OpenAI-Modelle noch aktiv | Teilweise erledigt |
+| Syncfusion Lizenz | Vollstaendige Migration auf MIT/Apache-Stack | **Erledigt** (verifiziert 2025-02-15) |
 | OCR Build-Umgebung fehlt (Rust/LLVM/CMake) | `scripts/setup_windows_build.ps1` lokal + Toolchain-Setup in CI + Runner-Gate | In Arbeit (Phase 5.5.1/5.5.2) |
-| Lange CI-Buildzeiten durch Rust | Cargo-Cache (`~/.cargo/registry`, `~/.cargo/git`) mit `pubspec.lock`-basiertem Key | Geplant (Phase 5.5.2) |
-| freezed Code-Gen nicht aktiv | ~~Datenklassen funktionieren manuell~~ Code-Gen laeuft, `.freezed.dart`/`.g.dart` vorhanden | Erledigt |
+| Lange CI-Buildzeiten durch Rust | Cargo-Cache mit `pubspec.lock`-basiertem Key | Geplant (Phase 5.5.2) |
+| freezed Code-Gen nicht aktiv | Code-Gen laeuft, `.freezed.dart`/`.g.dart` vorhanden | Erledigt |
+| ~~Stille Fehlerbehandlung~~ | Alle `catch (_)` durch `catch (e) { _log.warning(...) }` ersetzt (M8) | **Erledigt** |
+| **Fehlende Widget-Tests** | 0% UI-Test-Abdeckung. Mindestens kritische Flows testen (Phase 5.4) | **Offen -- Hoch** |
+| ~~Kein System-Prompt bei API-Calls~~ | `AppConstants.systemPrompt` als `role: 'system'` im Worker (F3) | **Erledigt** |
+| ~~API-Keys nicht in Logs maskiert~~ | `maskSecrets()` in Worker-Logger integriert (F2) | **Erledigt** |
+| ~~Ergebnis-Aggregation ohne Namenskonvention~~ | `fieldName_from_templateName_rep_N` Konvention im Worker (F1) | **Erledigt** |
+| **Kein ResultsScreen** | User kann Ergebnisse nur extern betrachten (Excel/HTML) (F8) | **Offen -- Mittel** |
 
 ---
 
@@ -918,3 +1069,6 @@ Nach jeder Phase:
 | Phase 3 | Setup Wizard komplett durchlaufbar, Projekt anlegen/oeffnen, Batch Wizard konfigurierbar, Passwort-Screen funktioniert |
 | Phase 4 | Kompletter Batch-Durchlauf (10 Items, 1 Prompt, Ollama lokal), Excel-Export pruefbar, Live-Log, Pause/Resume funktioniert |
 | Phase 5 | DE/EN Sprachwechsel, Unit Tests gruen, Windows-Installer laeuft auf sauberem System, DOCX/PDF/Token-Hardening nachweisbar, keine Syncfusion-Abhaengigkeit in `pubspec.lock`, OCR-Toolchain-Gate dokumentiert/verifiziert, CI Cargo-Cache aktiv, Tag-Release-Flow fuer QA laeuft |
+| **Code Review** | 2025-02-15: `dart analyze`: 0/0/3. `flutter test`: 61/61. 18+ Bugs identifiziert |
+| **Bug-Fix-Runde** | 2026-02-15: `dart analyze`: **0 Errors/0 Warnings/0 Info**. `flutter test`: **61/61**. K1-K7 (7/7), H1-H8 (8/8), M2-M10 (8/10), F1-F4 (4/4), F12+F13 (2/2) behoben. Gesamt: **29 Fixes/Features** implementiert |
+| **PRD-Abgleich** | P0-Features (F1-F4) ERLEDIGT. F12+F13 ERLEDIGT. Verbleibend: P1-Features (F5-F9), teilweise Features (F10, F11). Naechster Schritt: Lokalisierung, Widget-Tests, Distribution |

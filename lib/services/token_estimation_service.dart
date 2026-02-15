@@ -1,23 +1,48 @@
+import 'dart:collection';
 import 'dart:math';
 
+import 'package:logging/logging.dart';
 import 'package:tiktoken_tokenizer_gpt4o_o1/tiktoken_tokenizer_gpt4o_o1.dart'
     as tiktoken;
 
 import '../data/models/cost_estimate.dart';
 import '../data/models/model_info.dart';
 
+final _log = Logger('TokenEstimationService');
+
 /// Estimates token counts and costs for batch execution.
 class TokenEstimationService {
   static const int _fallbackCharsPerToken = 4;
-  static final tiktoken.Tiktoken _o200kTokenizer = tiktoken.Tiktoken(
-    tiktoken.OpenAiModel.gpt_4o,
-  );
-  static final tiktoken.Tiktoken _cl100kTokenizer = tiktoken.Tiktoken(
-    tiktoken.OpenAiModel.gpt_4,
-  );
+  static const int _maxCacheSize = 1000;
 
-  // Small in-memory cache to avoid repeated tokenization during live UI updates.
-  final Map<int, int> _tokenCache = <int, int>{};
+  // M5: Lazy initialization with error handling
+  static tiktoken.Tiktoken? _o200kTokenizer;
+  static tiktoken.Tiktoken? _cl100kTokenizer;
+
+  static tiktoken.Tiktoken? _getO200kTokenizer() {
+    if (_o200kTokenizer == null) {
+      try {
+        _o200kTokenizer = tiktoken.Tiktoken(tiktoken.OpenAiModel.gpt_4o);
+      } catch (e) {
+        _log.warning('Failed to initialize o200k tokenizer, using fallback: $e');
+      }
+    }
+    return _o200kTokenizer;
+  }
+
+  static tiktoken.Tiktoken? _getCl100kTokenizer() {
+    if (_cl100kTokenizer == null) {
+      try {
+        _cl100kTokenizer = tiktoken.Tiktoken(tiktoken.OpenAiModel.gpt_4);
+      } catch (e) {
+        _log.warning('Failed to initialize cl100k tokenizer, using fallback: $e');
+      }
+    }
+    return _cl100kTokenizer;
+  }
+
+  // M4: LRU cache using LinkedHashMap with access-order tracking.
+  final LinkedHashMap<int, int> _tokenCache = LinkedHashMap<int, int>();
 
   /// Estimate token count for a text string.
   int estimateTokens(String text, {String? modelId}) {
@@ -33,14 +58,22 @@ class TokenEstimationService {
     }
 
     int estimated;
-    try {
-      estimated = _resolveTokenizer(modelId).count(trimmed);
-    } catch (_) {
+    final tokenizer = _resolveTokenizer(modelId);
+    if (tokenizer != null) {
+      try {
+        estimated = tokenizer.count(trimmed);
+      } catch (e) {
+        _log.warning('Tokenizer failed, using char-based fallback: $e');
+        estimated = max(1, trimmed.length ~/ _fallbackCharsPerToken);
+      }
+    } else {
+      _log.fine('No tokenizer available for model $modelId, using char-based fallback');
       estimated = max(1, trimmed.length ~/ _fallbackCharsPerToken);
     }
 
-    if (_tokenCache.length > 1000) {
-      _tokenCache.clear();
+    // M4: LRU eviction - remove oldest entry when cache is full
+    if (_tokenCache.length >= _maxCacheSize) {
+      _tokenCache.remove(_tokenCache.keys.first);
     }
     _tokenCache[cacheKey] = estimated;
     return estimated;
@@ -122,11 +155,11 @@ class TokenEstimationService {
     return max(1, (sum / count).round());
   }
 
-  tiktoken.Tiktoken _resolveTokenizer(String? modelId) {
+  tiktoken.Tiktoken? _resolveTokenizer(String? modelId) {
     final normalized = modelId?.toLowerCase() ?? '';
     if (normalized.contains('gpt-4') && !normalized.contains('4o')) {
-      return _cl100kTokenizer;
+      return _getCl100kTokenizer();
     }
-    return _o200kTokenizer;
+    return _getO200kTokenizer();
   }
 }

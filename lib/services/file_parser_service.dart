@@ -37,6 +37,7 @@ class ParseProgressEvent {
 
 class FileParserService {
   static const int _maxCumulativeChars = 5000000; // 5M chars warning threshold
+  static const int _maxFileSizeBytes = 500 * 1024 * 1024; // 500 MB
 
   FileParserService({bool? enableOcrFallback, PdfOcrService? pdfOcrService})
     : _enableOcrFallback = enableOcrFallback ?? AppConstants.enableOcrFallback,
@@ -45,6 +46,26 @@ class FileParserService {
   final bool _enableOcrFallback;
   final PdfOcrService _pdfOcrService;
 
+  /// Check file size before parsing. Returns error ParseResult if too large.
+  Future<ParseResult?> _checkFileSize(String filePath) async {
+    final file = File(filePath);
+    if (!file.existsSync()) {
+      return ParseResult(
+        items: [],
+        warnings: ['File not found: $filePath'],
+      );
+    }
+    final size = await file.length();
+    if (size > _maxFileSizeBytes) {
+      final sizeMb = (size / (1024 * 1024)).toStringAsFixed(1);
+      return ParseResult(
+        items: [],
+        warnings: ['File too large ($sizeMb MB, max 500 MB): $filePath'],
+      );
+    }
+    return null;
+  }
+
   /// Parse an Excel file. Expects columns for ID and Item text.
   Future<ParseResult> parseExcel(
     String filePath, {
@@ -52,11 +73,33 @@ class FileParserService {
     String idColumn = 'ID',
     String itemColumn = 'Item',
   }) async {
-    final bytes = await File(filePath).readAsBytes();
-    final excel = xls.Excel.decodeBytes(bytes);
+    final xls.Excel excel;
+    try {
+      final bytes = await File(filePath).readAsBytes();
+      excel = xls.Excel.decodeBytes(bytes);
+    } catch (e) {
+      return ParseResult(
+        items: [],
+        warnings: ['Failed to read Excel file: $e'],
+      );
+    }
+
+    if (excel.tables.isEmpty) {
+      return const ParseResult(
+        items: [],
+        warnings: ['Excel file contains no sheets.'],
+      );
+    }
+
+    if (sheetName != null && !excel.tables.containsKey(sheetName)) {
+      return ParseResult(
+        items: [],
+        warnings: ['Sheet "$sheetName" not found. Available: ${excel.tables.keys.join(', ')}'],
+      );
+    }
 
     final sheet = sheetName != null
-        ? excel[sheetName]
+        ? excel.tables[sheetName]!
         : excel.tables.values.first;
 
     if (sheet.rows.isEmpty) {
@@ -231,7 +274,22 @@ class FileParserService {
 
   /// Extract text from a DOCX file.
   Future<ParseResult> parseDocx(String filePath) async {
-    final extracted = await compute(_extractDocxPayload, filePath);
+    final Map<String, Object?> extracted;
+    try {
+      extracted = await compute(_extractDocxPayload, filePath)
+          .timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      return ParseResult(
+        items: [],
+        warnings: ['DOCX parsing timed out after 30 seconds: $filePath'],
+      );
+    } catch (e) {
+      return ParseResult(
+        items: [],
+        warnings: ['DOCX parsing failed: $e'],
+      );
+    }
+
     final text = (extracted['text'] as String? ?? '').trim();
     final warnings = List<String>.from(
       extracted['warnings'] as List<dynamic>? ?? const [],
@@ -281,6 +339,9 @@ class FileParserService {
 
   /// Parse a single file based on its extension.
   Future<ParseResult> parseFile(String filePath) async {
+    final sizeError = await _checkFileSize(filePath);
+    if (sizeError != null) return sizeError;
+
     final ext = filePath.toLowerCase().split('.').last;
     switch (ext) {
       case 'xlsx':

@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
@@ -20,6 +21,8 @@ import 'steps/step_finish.dart';
 import 'steps/step_password.dart';
 import 'steps/step_provider.dart';
 import 'steps/step_welcome.dart';
+
+final _log = Logger('SetupWizardScreen');
 
 class SetupWizardScreen extends ConsumerStatefulWidget {
   const SetupWizardScreen({super.key});
@@ -94,7 +97,8 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
             : null;
         _isLoadingProviders = false;
       });
-    } catch (_) {
+    } catch (e) {
+      _log.warning('Failed to load providers', e);
       if (!mounted) {
         return;
       }
@@ -170,8 +174,9 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
     try {
       await db.settingsDao.setValue('language', _language);
       return true;
-    } catch (_) {
-      _showError(S.of(context)!.setupLanguageSaveError);
+    } catch (e) {
+      _log.warning('Failed to save language', e);
+      if (mounted) _showError(S.of(context)!.setupLanguageSaveError);
       return false;
     }
   }
@@ -219,8 +224,9 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         _passwordConfigured = true;
       });
       return true;
-    } catch (_) {
-      _showError(S.of(context)!.setupPasswordSaveError);
+    } catch (e) {
+      _log.warning('Failed to save password', e);
+      if (mounted) _showError(S.of(context)!.setupPasswordSaveError);
       return false;
     } finally {
       if (mounted) {
@@ -271,7 +277,8 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         _connectionTested = true;
         _connectionOk = ok;
       });
-    } catch (_) {
+    } catch (e) {
+      _log.warning('Connection test failed', e);
       if (!mounted) {
         return;
       }
@@ -337,8 +344,9 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         _savedProviderRecordId = recordId;
       });
       return true;
-    } catch (_) {
-      _showError(S.of(context)!.setupProviderSaveError);
+    } catch (e) {
+      _log.warning('Failed to save provider', e);
+      if (mounted) _showError(S.of(context)!.setupProviderSaveError);
       return false;
     } finally {
       if (mounted) {
@@ -357,8 +365,9 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
         _strictLocalMode ? 'true' : 'false',
       );
       return true;
-    } catch (_) {
-      _showError(S.of(context)!.setupSettingsSaveError);
+    } catch (e) {
+      _log.warning('Failed to save settings', e);
+      if (mounted) _showError(S.of(context)!.setupSettingsSaveError);
       return false;
     }
   }
@@ -374,8 +383,9 @@ class _SetupWizardScreenState extends ConsumerState<SetupWizardScreen> {
       ref.invalidate(isSetupCompleteProvider);
       context.go('/projects');
       return true;
-    } catch (_) {
-      _showError(S.of(context)!.setupCompleteError);
+    } catch (e) {
+      _log.warning('Failed to complete setup', e);
+      if (mounted) _showError(S.of(context)!.setupCompleteError);
       return false;
     }
   }

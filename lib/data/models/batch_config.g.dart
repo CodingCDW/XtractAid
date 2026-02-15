@@ -61,6 +61,7 @@ _$ChunkSettingsImpl _$$ChunkSettingsImplFromJson(Map<String, dynamic> json) =>
       chunkSize: (json['chunkSize'] as num?)?.toInt() ?? 10,
       repetitions: (json['repetitions'] as num?)?.toInt() ?? 1,
       shuffleBetweenReps: json['shuffleBetweenReps'] as bool? ?? true,
+      requestDelaySeconds: (json['requestDelaySeconds'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$$ChunkSettingsImplToJson(_$ChunkSettingsImpl instance) =>
@@ -68,6 +69,7 @@ Map<String, dynamic> _$$ChunkSettingsImplToJson(_$ChunkSettingsImpl instance) =>
       'chunkSize': instance.chunkSize,
       'repetitions': instance.repetitions,
       'shuffleBetweenReps': instance.shuffleBetweenReps,
+      'requestDelaySeconds': instance.requestDelaySeconds,
     };
 
 _$BatchModelConfigImpl _$$BatchModelConfigImplFromJson(

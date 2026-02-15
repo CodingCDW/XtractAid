@@ -35,27 +35,33 @@ class ReportGeneratorService {
       outputDir.createSync(recursive: true);
     }
 
-    final excelPath = await _generateExcel(outputDir.path, results);
-    final markdownPath = await _generateMarkdown(
-      outputDir.path,
-      config: config,
-      stats: stats,
-      logs: logs,
-      promptContents: promptContents,
-    );
-    final htmlPath = await _generateHtml(
-      outputDir.path,
-      config: config,
-      stats: stats,
-      results: results,
-      logs: logs,
-    );
+    try {
+      final excelPath = await _generateExcel(outputDir.path, results);
+      final markdownPath = await _generateMarkdown(
+        outputDir.path,
+        config: config,
+        stats: stats,
+        logs: logs,
+        promptContents: promptContents,
+      );
+      final htmlPath = await _generateHtml(
+        outputDir.path,
+        config: config,
+        stats: stats,
+        results: results,
+        logs: logs,
+      );
 
-    return GeneratedReports(
-      excelPath: excelPath,
-      markdownPath: markdownPath,
-      htmlPath: htmlPath,
-    );
+      return GeneratedReports(
+        excelPath: excelPath,
+        markdownPath: markdownPath,
+        htmlPath: htmlPath,
+      );
+    } on FileSystemException catch (e) {
+      throw Exception(
+        'Failed to write report files to ${outputDir.path}: ${e.message}',
+      );
+    }
   }
 
   String _outputDir(String projectPath, String batchId) {
@@ -306,7 +312,15 @@ class ReportGeneratorService {
   }
 
   String _escapeMd(String value) {
-    return value.replaceAll('|', '\\|').replaceAll('\n', ' ');
+    return value
+        .replaceAll('\\', '\\\\')
+        .replaceAll('|', '\\|')
+        .replaceAll('`', '\\`')
+        .replaceAll('*', '\\*')
+        .replaceAll('_', '\\_')
+        .replaceAll('[', '\\[')
+        .replaceAll(']', '\\]')
+        .replaceAll('\n', ' ');
   }
 
   String _escapeHtml(String value) {

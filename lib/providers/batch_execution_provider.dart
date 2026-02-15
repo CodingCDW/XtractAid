@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 
 import '../data/models/batch_stats.dart';
 import '../data/models/log_entry.dart';
+import '../services/checkpoint_service.dart';
 import '../workers/batch_execution_worker.dart';
 import '../workers/worker_messages.dart';
+
+final _log = Logger('BatchExecutionNotifier');
 
 enum BatchExecutionStatus {
   idle,
@@ -62,9 +66,12 @@ class BatchExecutionNotifier extends StateNotifier<BatchExecutionState> {
   BatchExecutionWorker? _worker;
   StreamSubscription<WorkerEvent>? _eventSub;
   StreamSubscription<Object>? _errorSub;
+  String? _projectPath;
+  final _checkpointService = CheckpointService();
 
   Future<void> startBatch(StartBatchCommand command) async {
     await _disposeWorker();
+    _projectPath = command.projectPath;
 
     state = const BatchExecutionState(status: BatchExecutionStatus.starting);
 
@@ -92,18 +99,27 @@ class BatchExecutionNotifier extends StateNotifier<BatchExecutionState> {
   }
 
   void pause() {
-    _worker?.sendCommand(PauseBatchCommand());
+    final worker = _worker;
+    if (worker == null || !worker.isRunning) return;
+    worker.sendCommand(PauseBatchCommand());
     state = state.copyWith(status: BatchExecutionStatus.paused);
   }
 
   void resume() {
-    _worker?.sendCommand(ResumeBatchCommand());
+    final worker = _worker;
+    if (worker == null || !worker.isRunning) return;
+    worker.sendCommand(ResumeBatchCommand());
     state = state.copyWith(status: BatchExecutionStatus.running);
   }
 
   void stop() {
-    _worker?.sendCommand(StopBatchCommand());
-    state = state.copyWith(status: BatchExecutionStatus.failed);
+    final worker = _worker;
+    if (worker == null || !worker.isRunning) return;
+    worker.sendCommand(StopBatchCommand());
+    state = state.copyWith(
+      status: BatchExecutionStatus.failed,
+      errorMessage: 'Batch stopped by user.',
+    );
   }
 
   void reset() {
@@ -122,7 +138,7 @@ class BatchExecutionNotifier extends StateNotifier<BatchExecutionState> {
       case CheckpointSavedEvent():
         final infoLog = LogEntry(
           level: LogLevel.info,
-          message: 'Checkpoint gespeichert bei Call ${event.callCount}.',
+          message: 'Checkpoint saved at call ${event.callCount}.',
           timestamp: DateTime.now(),
         );
         state = state.copyWith(logs: [...state.logs, infoLog]);
@@ -132,6 +148,16 @@ class BatchExecutionNotifier extends StateNotifier<BatchExecutionState> {
           stats: event.stats,
           results: event.results,
         );
+        // F12: Auto-cleanup old checkpoints after successful batch
+        final projectPath = _projectPath;
+        if (projectPath != null) {
+          unawaited(
+            _checkpointService.cleanupOldCheckpoints(projectPath).catchError((Object e) {
+              _log.warning('Checkpoint cleanup failed: $e');
+              return 0;
+            }),
+          );
+        }
       case BatchErrorEvent():
         state = state.copyWith(
           status: BatchExecutionStatus.failed,
