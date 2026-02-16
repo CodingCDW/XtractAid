@@ -1,13 +1,15 @@
-name: CI
+name: Release Windows
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
-  validate:
+  windows-release:
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -47,11 +49,22 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Dependency policy guard
-        run: dart run scripts/check_dependency_allowlist.dart
+      - name: Build Windows release
+        run: flutter build windows --release
 
-      - name: Analyze
-        run: dart analyze lib
+      - name: Create ZIP artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "dist/XtractAid-Windows.zip" -Force
 
-      - name: Test
-        run: flutter test
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XtractAid-Windows
+          path: dist/XtractAid-Windows.zip
+
+      - name: Publish GitHub release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/XtractAid-Windows.zip

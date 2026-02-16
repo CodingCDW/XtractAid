@@ -21,7 +21,7 @@ class XtractAidApp extends ConsumerWidget {
       data: (isComplete) {
         final router = AppRouter.create(isSetupComplete: isComplete);
         return MaterialApp.router(
-          title: 'XtractAid',
+          onGenerateTitle: (context) => S.of(context)!.appTitle,
           theme: AppTheme.light,
           routerConfig: router,
           debugShowCheckedModeBanner: false,
@@ -44,10 +44,15 @@ class XtractAidApp extends ConsumerWidget {
         locale: locale,
         localizationsDelegates: S.localizationsDelegates,
         supportedLocales: S.supportedLocales,
-        home: Scaffold(
-          body: Center(
-            child: Text('Error: $error'),
-          ),
+        home: Builder(
+          builder: (context) {
+            final t = S.of(context)!;
+            return Scaffold(
+              body: Center(
+                child: Text(t.errorGeneric(error.toString())),
+              ),
+            );
+          },
         ),
       ),
     );

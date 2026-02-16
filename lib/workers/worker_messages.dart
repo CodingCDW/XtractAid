@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../data/models/batch_config.dart';
 import '../data/models/batch_stats.dart';
 import '../data/models/item.dart';
@@ -36,9 +38,10 @@ class StopBatchCommand extends WorkerCommand {}
 sealed class WorkerEvent {}
 
 class ProgressEvent extends WorkerEvent {
-  ProgressEvent(this.progress);
+  ProgressEvent(this.progress, {this.stats});
 
   final BatchProgress progress;
+  final BatchStats? stats;
 }
 
 class LogEvent extends WorkerEvent {
@@ -54,20 +57,14 @@ class CheckpointSavedEvent extends WorkerEvent {
 }
 
 class BatchCompletedEvent extends WorkerEvent {
-  BatchCompletedEvent({
-    required this.stats,
-    required this.results,
-  });
+  BatchCompletedEvent({required this.stats, required this.results});
 
   final BatchStats stats;
   final List<Map<String, dynamic>> results;
 }
 
 class BatchErrorEvent extends WorkerEvent {
-  BatchErrorEvent({
-    required this.message,
-    this.details,
-  });
+  BatchErrorEvent({required this.message, this.details});
 
   final String message;
   final String? details;
@@ -77,16 +74,18 @@ abstract final class WorkerMessageCodec {
   static Map<String, dynamic> encodeCommand(WorkerCommand command) {
     return switch (command) {
       StartBatchCommand() => {
-          'type': 'start',
-          'config': command.config.toJson(),
-          'items': command.items.map((e) => e.toJson()).toList(),
-          'prompts': command.prompts,
-          'projectPath': command.projectPath,
-          'apiKey': command.apiKey,
-          'providerBaseUrls': command.providerBaseUrls,
-          'inputPricePerMillion': command.inputPricePerMillion,
-          'outputPricePerMillion': command.outputPricePerMillion,
-        },
+        'type': 'start',
+        // Deep-serialize nested freezed/json objects so isolate payload
+        // contains only primitive/sendable JSON structures.
+        'config': jsonDecode(jsonEncode(command.config.toJson())),
+        'items': command.items.map((e) => e.toJson()).toList(),
+        'prompts': command.prompts,
+        'projectPath': command.projectPath,
+        'apiKey': command.apiKey,
+        'providerBaseUrls': command.providerBaseUrls,
+        'inputPricePerMillion': command.inputPricePerMillion,
+        'outputPricePerMillion': command.outputPricePerMillion,
+      },
       PauseBatchCommand() => {'type': 'pause'},
       ResumeBatchCommand() => {'type': 'resume'},
       StopBatchCommand() => {'type': 'stop'},
@@ -121,10 +120,10 @@ abstract final class WorkerMessageCodec {
           ),
           projectPath: payload['projectPath']?.toString() ?? '',
           apiKey: payload['apiKey']?.toString(),
-          providerBaseUrls: (payload['providerBaseUrls'] as Map?)
-                  ?.map(
-                    (key, value) => MapEntry(key.toString(), value.toString()),
-                  ) ??
+          providerBaseUrls:
+              (payload['providerBaseUrls'] as Map?)?.map(
+                (key, value) => MapEntry(key.toString(), value.toString()),
+              ) ??
               const {},
           inputPricePerMillion:
               (payload['inputPricePerMillion'] as num?)?.toDouble() ?? 0.0,
@@ -145,27 +144,25 @@ abstract final class WorkerMessageCodec {
   static Map<String, dynamic> encodeEvent(WorkerEvent event) {
     return switch (event) {
       ProgressEvent() => {
-          'type': 'progress',
-          'progress': event.progress.toJson(),
-        },
-      LogEvent() => {
-          'type': 'log',
-          'entry': event.entry.toJson(),
-        },
+        'type': 'progress',
+        'progress': event.progress.toJson(),
+        if (event.stats != null) 'stats': event.stats!.toJson(),
+      },
+      LogEvent() => {'type': 'log', 'entry': event.entry.toJson()},
       CheckpointSavedEvent() => {
-          'type': 'checkpointSaved',
-          'callCount': event.callCount,
-        },
+        'type': 'checkpointSaved',
+        'callCount': event.callCount,
+      },
       BatchCompletedEvent() => {
-          'type': 'completed',
-          'stats': event.stats.toJson(),
-          'results': event.results,
-        },
+        'type': 'completed',
+        'stats': event.stats.toJson(),
+        'results': event.results,
+      },
       BatchErrorEvent() => {
-          'type': 'error',
-          'message': event.message,
-          'details': event.details,
-        },
+        'type': 'error',
+        'message': event.message,
+        'details': event.details,
+      },
     };
   }
 
@@ -184,8 +181,12 @@ abstract final class WorkerMessageCodec {
         if (progressMap is! Map) {
           return null;
         }
+        final statsMap = payload['stats'];
         return ProgressEvent(
           BatchProgress.fromJson(Map<String, dynamic>.from(progressMap)),
+          stats: statsMap is Map
+              ? BatchStats.fromJson(Map<String, dynamic>.from(statsMap))
+              : null,
         );
       case 'log':
         final entryMap = payload['entry'];

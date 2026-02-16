@@ -16,6 +16,7 @@
   "actionOpen": "Oeffnen",
   "actionCreate": "Erstellen",
   "actionChange": "Aendern",
+  "actionContinue": "Fortfahren",
   "actionDone": "Fertig",
   "actionStart": "Start",
   "actionPause": "Pause",
@@ -43,6 +44,7 @@
   "labelModel": "Model",
   "labelProjectName": "Projektname",
   "labelStatus": "Status:",
+  "labelUnknown": "Unbekannt",
   "labelLocal": "lokal",
   "labelCloud": "cloud",
 
@@ -107,6 +109,33 @@
   "projectsNotFound": "Projekt nicht gefunden.",
   "projectsLastOpened": "Letzte Oeffnung:",
   "projectsNever": "Nie",
+  "projectsDeleteConfirm": "Projekt \"{name}\" loeschen?\n\nPfad: {path}\n\nDu kannst nur den Listeneintrag entfernen oder das gesamte Projekt inklusive Ordner und aller Batch-Daten loeschen.",
+  "@projectsDeleteConfirm": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "path": {"type": "String"}
+    }
+  },
+  "projectsDeleteListOnly": "Nur aus Liste entfernen",
+  "projectsDeleteProject": "Projekt loeschen",
+  "projectsDeleteSuccessFull": "Projekt \"{name}\" wurde vollstaendig geloescht.",
+  "@projectsDeleteSuccessFull": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "projectsDeleteSuccessList": "Projekt \"{name}\" wurde aus der Liste entfernt.",
+  "@projectsDeleteSuccessList": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "projectsDeleteFailed": "Projekt konnte nicht geloescht werden: {error}",
+  "@projectsDeleteFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
   "projectCreateTitle": "Neues Projekt erstellen",
   "projectCreateNameHint": "Bitte Projektname eingeben.",
   "projectCreateFolderHint": "Bitte Zielordner waehlen.",
@@ -119,6 +148,8 @@
   "projectDetailPrompts": "Prompts",
   "projectDetailInput": "Input",
   "projectDetailNoBatches": "Noch keine Batches vorhanden.",
+  "projectDetailNoPromptFiles": "Keine Prompt-Dateien gefunden.",
+  "projectDetailNoInputFiles": "Keine Input-Dateien gefunden.",
 
   "batchWizardItemsTitle": "Items laden",
   "batchWizardPromptsTitle": "Prompts waehlen",
@@ -126,6 +157,12 @@
   "batchWizardModelTitle": "Model konfigurieren",
   "batchWizardConfirmTitle": "Bestaetigen + starten",
   "batchWizardStartBatch": "Batch starten",
+  "batchWizardTitle": "Batch Wizard - {projectName}",
+  "@batchWizardTitle": {
+    "placeholders": {
+      "projectName": {"type": "String"}
+    }
+  },
   "batchWizardSelectSource": "Bitte zuerst eine Eingabequelle waehlen.",
   "batchWizardLoadItems": "Bitte Items laden, bevor du fortfaehrst.",
   "batchWizardSelectPrompt": "Bitte mindestens einen Prompt auswaehlen.",
@@ -135,6 +172,31 @@
   "batchWizardSaveError": "Batch konnte nicht gespeichert werden.",
   "batchWizardNotLoaded": "Batch Wizard konnte nicht geladen werden.",
   "batchWizardProjectNotLoaded": "Projekt nicht geladen.",
+  "batchWizardSaveChangesTitle": "Batch-Aenderungen speichern",
+  "batchWizardSaveChangesMessage": "Dieser Batch ist bereits abgeschlossen oder fehlgeschlagen. Moechtest du ihn aktualisieren oder als neuen Batch speichern?",
+  "batchWizardUpdateExisting": "Bestehenden aktualisieren",
+  "batchWizardSaveAsNew": "Als neu speichern",
+  "batchWizardRunningNotEditable": "Laufende Batches koennen nicht bearbeitet werden.",
+  "batchWizardGeneratedName": "Batch {timestamp}",
+  "@batchWizardGeneratedName": {
+    "placeholders": {
+      "timestamp": {"type": "String"}
+    }
+  },
+  "batchWizardInactiveModelWarning": "Der ausgewaehlte Modellstatus ist \"{status}\". Fuer neue Laeufe sollte ein aktives Modell verwendet werden.",
+  "@batchWizardInactiveModelWarning": {
+    "placeholders": {
+      "status": {"type": "String"}
+    }
+  },
+  "batchWizardItemsFallbackWarning": "Items konnten nicht aus der Eingabequelle geladen werden. Es wird die gespeicherte Item-Anzahl verwendet.",
+  "batchDeleteTitle": "Batch loeschen?",
+  "batchDeleteDesc": "Batch \"{name}\" loeschen? Dies kann nicht rueckgaengig gemacht werden.",
+  "@batchDeleteDesc": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
 
   "itemsExcelCsv": "Excel/CSV",
   "itemsDocFolder": "Dokumenten-Ordner",
@@ -149,6 +211,7 @@
     }
   },
   "itemsIdColumn": "ID-Spalte",
+  "itemsIdLabel": "ID",
   "itemsItemColumn": "Item-Spalte",
   "itemsPreviewText": "Text (Vorschau)",
 
@@ -183,11 +246,38 @@
   "confirmPrivacyCheckbox": "Ich bestaetige, dass das Senden dieser Daten an den Cloud-Provider mit meinen Datenschutzanforderungen vereinbar ist.",
 
   "promptPreview": "Prompt-Vorschau",
+  "promptSelectorAvailable": "Verfuegbar",
+  "promptSelectorSelected": "Ausgewaehlt",
+  "promptImport": "Importieren",
+  "promptImportTooltip": "Prompt-Dateien von der Festplatte importieren",
+  "promptImportSuccess": "{count} Prompt(s) importiert.",
+  "@promptImportSuccess": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "promptImportSkipped": "Uebersprungen (existiert bereits): {names}",
+  "@promptImportSkipped": {
+    "placeholders": {
+      "names": {"type": "String"}
+    }
+  },
 
   "modelContext": "Kontext:",
   "modelPriceLabel": "Preis (Input/Output je 1M):",
 
   "execTitle": "Ausfuehrung",
+  "execBatchTitle": "Batch-Ausfuehrung",
+  "execBatchNameTitle": "Batch: {name}",
+  "@execBatchNameTitle": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "execBatchId": "Batch ID:",
+  "execCurrentPromptName": "Aktueller Prompt-Name:",
+  "execCurrentModel": "Aktuelles Modell:",
+  "execPreparingInput": "Konfiguration geladen. Eingabedaten werden vorbereitet...",
   "execRepetition": "Repetition:",
   "execPrompt": "Prompt:",
   "execChunk": "Chunk:",
@@ -222,6 +312,20 @@
       "error": {"type": "String"}
     }
   },
+  "execStatusIdle": "LEERLAUF",
+  "execStatusStarting": "STARTET",
+  "execStatusRunning": "LAEUFT",
+  "execStatusPaused": "PAUSIERT",
+  "execStatusCompleted": "ABGESCHLOSSEN",
+  "execStatusFailed": "FEHLER",
+  "execProgressCalls": "{percent}%  |  {completed}/{total} Aufrufe",
+  "@execProgressCalls": {
+    "placeholders": {
+      "percent": {"type": "String"},
+      "completed": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
 
   "modelsTitle": "Modelle",
   "modelsRegistry": "Registry Models",
@@ -243,6 +347,16 @@
   "modelsNoCustom": "Keine Custom Model Overrides vorhanden.",
   "modelsQueryProviders": "Provider abfragen",
   "modelsNoDiscovery": "Noch keine Discovery-Daten.",
+  "modelsShowInactive": "Inaktive/veraltete Modelle anzeigen",
+  "modelsRegistryTileSubtitle": "ID: {id} | Kontext: {contextWindow} | USD/M in/out: {inputPrice}/{outputPrice}",
+  "@modelsRegistryTileSubtitle": {
+    "placeholders": {
+      "id": {"type": "String"},
+      "contextWindow": {"type": "int"},
+      "inputPrice": {"type": "double"},
+      "outputPrice": {"type": "double"}
+    }
+  },
   "modelsIdLabel": "ID:",
   "modelsProviderLabel": "Provider:",
   "modelsStatusLabel": "Status:",
@@ -250,10 +364,125 @@
   "modelsContextWindow": "Context Window:",
   "modelsMaxOutputTokens": "Max Output Tokens:",
   "modelsCapabilities": "Capabilities",
+  "modelsCapabilityChat": "chat",
+  "modelsCapabilityVision": "vision",
+  "modelsCapabilityFn": "fn",
+  "modelsCapabilityJson": "json",
+  "modelsCapabilityReason": "reason",
+  "modelsPricingLabel": "Pricing (USD/M in,out): {inputPrice}, {outputPrice}",
+  "@modelsPricingLabel": {
+    "placeholders": {
+      "inputPrice": {"type": "double"},
+      "outputPrice": {"type": "double"}
+    }
+  },
+  "modelsCapabilitySummary": "chat={chat}, vision={vision}, functionCalling={functionCalling}, jsonMode={jsonMode}, streaming={streaming}, reasoning={reasoning}, extendedThinking={extendedThinking}",
+  "@modelsCapabilitySummary": {
+    "placeholders": {
+      "chat": {"type": "String"},
+      "vision": {"type": "String"},
+      "functionCalling": {"type": "String"},
+      "jsonMode": {"type": "String"},
+      "streaming": {"type": "String"},
+      "reasoning": {"type": "String"},
+      "extendedThinking": {"type": "String"}
+    }
+  },
+  "modelsParameterDetails": "{name}: supported={supported}, type={type}, min={min}, max={max}, default={defaultValue}, values={values}",
+  "@modelsParameterDetails": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "supported": {"type": "String"},
+      "type": {"type": "String"},
+      "min": {"type": "String"},
+      "max": {"type": "String"},
+      "defaultValue": {"type": "String"},
+      "values": {"type": "String"}
+    }
+  },
   "modelsParameters": "Parameters",
+  "modelsHideRegistryModelConfirm": "Modell \"{modelId}\" aus den Registry-Modellen ausblenden? Du kannst es spaeter unter Custom Models wiederherstellen, indem du den Override loeschst.",
+  "@modelsHideRegistryModelConfirm": {
+    "placeholders": {
+      "modelId": {"type": "String"}
+    }
+  },
+  "modelsHideRegistryModelDone": "Modell \"{modelId}\" wurde ausgeblendet.",
+  "@modelsHideRegistryModelDone": {
+    "placeholders": {
+      "modelId": {"type": "String"}
+    }
+  },
+  "modelsContextWindowField": "context_window",
+  "modelsMaxOutputTokensField": "max_output_tokens",
+  "modelsNoParameterDefinitions": "Keine Parameter-Definitionen gefunden.",
+  "modelsRawJson": "JSON",
+  "modelsContextWindowPositive": "context_window muss eine positive Ganzzahl sein.",
+  "modelsMaxOutputTokensPositive": "max_output_tokens muss eine positive Ganzzahl sein.",
+  "modelsParameterMeta": "type={type}   min={min}   max={max}",
+  "@modelsParameterMeta": {
+    "placeholders": {
+      "type": {"type": "String"},
+      "min": {"type": "String"},
+      "max": {"type": "String"}
+    }
+  },
+  "modelsDefaultLabel": "default",
+  "modelsApiNameOptional": "api_name (optional)",
+  "modelsInvalidIntegerDefault": "Ungueltiger Integer-Default fuer Parameter \"{key}\".",
+  "@modelsInvalidIntegerDefault": {
+    "placeholders": {
+      "key": {"type": "String"}
+    }
+  },
+  "modelsInvalidFloatDefault": "Ungueltiger Float-Default fuer Parameter \"{key}\".",
+  "@modelsInvalidFloatDefault": {
+    "placeholders": {
+      "key": {"type": "String"}
+    }
+  },
   "modelsEditOverride": "Override bearbeiten:",
+  "modelsOverrideJsonLabel": "overrideJson",
+  "modelsJsonMustBeObject": "JSON muss ein Objekt sein.",
+  "modelsInvalidJson": "Ungueltiges JSON: {error}",
+  "@modelsInvalidJson": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "modelsCreateCustomTitle": "Custom Model erstellen",
+  "modelsCreateCustomModelId": "modelId",
+  "modelsCreateCustomProvider": "provider",
+  "modelsModelIdRequired": "modelId ist erforderlich.",
+  "modelsModelNotFound": "Modell nicht gefunden.",
+  "modelsDiscoveryNotReachable": "Nicht erreichbar unter {baseUrl}",
+  "@modelsDiscoveryNotReachable": {
+    "placeholders": {
+      "baseUrl": {"type": "String"}
+    }
+  },
+  "modelsDiscoveryNoModels": "Keine Modelle gefunden unter {baseUrl}",
+  "@modelsDiscoveryNoModels": {
+    "placeholders": {
+      "baseUrl": {"type": "String"}
+    }
+  },
+  "modelsDiscoveryFailedAt": "Discovery fehlgeschlagen unter {baseUrl}: {error}",
+  "@modelsDiscoveryFailedAt": {
+    "placeholders": {
+      "baseUrl": {"type": "String"},
+      "error": {"type": "String"}
+    }
+  },
+  "modelsCustomModelDescription": "Custom Model aus dem Model Manager hinzugefuegt",
   "modelsOverrideSaved": "Override gespeichert.",
   "modelsOverrideDeleted": "Override geloescht.",
+  "modelsDiscoveryFailed": "Discovery fehlgeschlagen: {error}",
+  "@modelsDiscoveryFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
 
   "settingsTitle": "Einstellungen",
   "settingsSectionGeneral": "Allgemein",
@@ -280,7 +509,40 @@
   "settingsMinPasswordLength": "Mindestens 8 Zeichen",
   "settingsPasswordMismatch": "Passwoerter stimmen nicht ueberein",
   "settingsWrongPassword": "Aktuelles Passwort ist falsch",
+  "settingsDecryptKeysFailed": "Vorhandene Schluessel konnten nicht entschluesselt werden. Passwort wurde nicht geaendert.",
+  "settingsReEncryptionFailed": "Neuverschluesselung fehlgeschlagen. Passwort wurde nicht geaendert.",
   "settingsProviderTitle": "API-Provider",
+  "settingsProviderAdd": "Provider hinzufuegen",
+  "settingsProviderAddTitle": "API-Provider hinzufuegen",
+  "settingsProviderEditTitle": "Provider bearbeiten: {name}",
+  "@settingsProviderEditTitle": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "settingsProviderName": "Name",
+  "settingsProviderType": "Typ",
+  "settingsProviderBaseUrl": "Base-URL",
+  "settingsProviderApiKey": "API-Key",
+  "settingsProviderApiKeyLocalOptional": "Optional fuer lokale Provider.",
+  "settingsProviderApiKeyKeepHint": "Leer lassen, um den gespeicherten Key zu behalten.",
+  "settingsProviderApiKeyRequiredHint": "Fuer Cloud-Provider erforderlich.",
+  "settingsProviderClearApiKey": "Gespeicherten API-Key loeschen",
+  "settingsProviderEnabled": "Aktiviert",
+  "settingsProviderKeyStored": "API-Key gespeichert",
+  "settingsProviderKeyMissing": "Kein API-Key",
+  "settingsProviderNameRequired": "Bitte einen Providernamen eingeben.",
+  "settingsProviderBaseUrlRequired": "Bitte eine Base-URL eingeben.",
+  "settingsProviderApiKeyRequired": "Bitte einen API-Key fuer diesen Providertyp eingeben.",
+  "settingsProviderEncryptionLocked": "API-Key kann nicht gespeichert werden, solange die App gesperrt ist.",
+  "settingsProviderAdded": "Provider hinzugefuegt.",
+  "settingsProviderUpdated": "Provider aktualisiert.",
+  "settingsProviderSaveError": "Provider konnte nicht gespeichert werden: {error}",
+  "@settingsProviderSaveError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
   "settingsNoProviders": "Keine Provider konfiguriert",
   "settingsDeleteProvider": "Provider loeschen?",
   "settingsDeleteProviderDesc": "Provider \"{name}\" und den gespeicherten API-Key loeschen?",
@@ -320,6 +582,9 @@
 
   "logLevelAll": "Alle",
   "logLevelLabel": "Level:",
+  "logLevelInfo": "INFO",
+  "logLevelWarn": "WARN",
+  "logLevelError": "ERROR",
 
   "noSourceSelected": "Keine Quelle gewaehlt",
 

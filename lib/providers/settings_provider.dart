@@ -13,7 +13,14 @@ final isSetupCompleteProvider = FutureProvider<bool>((ref) async {
 
 /// The user's selected locale, loaded from settings DB.
 final localeProvider = StateProvider<Locale>((ref) {
-  return const Locale('de');
+  final systemLanguage = PlatformDispatcher.instance.locale.languageCode;
+  if (systemLanguage == 'de') {
+    return const Locale('de');
+  }
+  if (systemLanguage == 'en') {
+    return const Locale('en');
+  }
+  return const Locale('en');
 });
 
 /// Loads the persisted language setting and updates [localeProvider].

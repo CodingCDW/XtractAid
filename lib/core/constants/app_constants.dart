@@ -15,7 +15,11 @@ abstract final class AppConstants {
 
   // Registry
   static const String remoteRegistryUrl =
-      'https://raw.githubusercontent.com/xtractaid/model-registry/main/registry.json';
+      'https://raw.githubusercontent.com/xtractaid/model-registry/main/model_registry.json';
+  static const List<String> remoteRegistryUrls = [
+    remoteRegistryUrl,
+    'https://raw.githubusercontent.com/xtractaid/model-registry/main/registry.json',
+  ];
   static const Duration registryCacheDuration = Duration(days: 7);
 
   // Project structure

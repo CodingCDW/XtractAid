@@ -11,14 +11,7 @@ import '../workers/worker_messages.dart';
 
 final _log = Logger('BatchExecutionNotifier');
 
-enum BatchExecutionStatus {
-  idle,
-  starting,
-  running,
-  paused,
-  completed,
-  failed,
-}
+enum BatchExecutionStatus { idle, starting, running, paused, completed, failed }
 
 class BatchExecutionState {
   const BatchExecutionState({
@@ -89,6 +82,17 @@ class BatchExecutionNotifier extends StateNotifier<BatchExecutionState> {
     try {
       await worker.start();
       state = state.copyWith(status: BatchExecutionStatus.running);
+      state = state.copyWith(
+        logs: [
+          ...state.logs,
+          LogEntry(
+            level: LogLevel.info,
+            message:
+                'Worker started. Sending StartBatchCommand with ${command.items.length} items and ${command.prompts.length} prompts.',
+            timestamp: DateTime.now(),
+          ),
+        ],
+      );
       worker.sendCommand(command);
     } catch (e) {
       state = state.copyWith(
@@ -132,6 +136,7 @@ class BatchExecutionNotifier extends StateNotifier<BatchExecutionState> {
         state = state.copyWith(
           status: BatchExecutionStatus.running,
           progress: event.progress,
+          stats: event.stats ?? state.stats,
         );
       case LogEvent():
         state = state.copyWith(logs: [...state.logs, event.entry]);
@@ -152,7 +157,9 @@ class BatchExecutionNotifier extends StateNotifier<BatchExecutionState> {
         final projectPath = _projectPath;
         if (projectPath != null) {
           unawaited(
-            _checkpointService.cleanupOldCheckpoints(projectPath).catchError((Object e) {
+            _checkpointService.cleanupOldCheckpoints(projectPath).catchError((
+              Object e,
+            ) {
               _log.warning('Checkpoint cleanup failed: $e');
               return 0;
             }),
@@ -184,5 +191,5 @@ class BatchExecutionNotifier extends StateNotifier<BatchExecutionState> {
 
 final batchExecutionProvider =
     StateNotifierProvider<BatchExecutionNotifier, BatchExecutionState>(
-  (ref) => BatchExecutionNotifier(),
-);
+      (ref) => BatchExecutionNotifier(),
+    );

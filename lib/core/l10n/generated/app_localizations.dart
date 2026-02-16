@@ -175,6 +175,12 @@ abstract class S {
   /// **'Aendern'**
   String get actionChange;
 
+  /// No description provided for @actionContinue.
+  ///
+  /// In de, this message translates to:
+  /// **'Fortfahren'**
+  String get actionContinue;
+
   /// No description provided for @actionDone.
   ///
   /// In de, this message translates to:
@@ -330,6 +336,12 @@ abstract class S {
   /// In de, this message translates to:
   /// **'Status:'**
   String get labelStatus;
+
+  /// No description provided for @labelUnknown.
+  ///
+  /// In de, this message translates to:
+  /// **'Unbekannt'**
+  String get labelUnknown;
 
   /// No description provided for @labelLocal.
   ///
@@ -691,6 +703,42 @@ abstract class S {
   /// **'Nie'**
   String get projectsNever;
 
+  /// No description provided for @projectsDeleteConfirm.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt \"{name}\" loeschen?\n\nPfad: {path}\n\nDu kannst nur den Listeneintrag entfernen oder das gesamte Projekt inklusive Ordner und aller Batch-Daten loeschen.'**
+  String projectsDeleteConfirm(String name, String path);
+
+  /// No description provided for @projectsDeleteListOnly.
+  ///
+  /// In de, this message translates to:
+  /// **'Nur aus Liste entfernen'**
+  String get projectsDeleteListOnly;
+
+  /// No description provided for @projectsDeleteProject.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt loeschen'**
+  String get projectsDeleteProject;
+
+  /// No description provided for @projectsDeleteSuccessFull.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt \"{name}\" wurde vollstaendig geloescht.'**
+  String projectsDeleteSuccessFull(String name);
+
+  /// No description provided for @projectsDeleteSuccessList.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt \"{name}\" wurde aus der Liste entfernt.'**
+  String projectsDeleteSuccessList(String name);
+
+  /// No description provided for @projectsDeleteFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Projekt konnte nicht geloescht werden: {error}'**
+  String projectsDeleteFailed(String error);
+
   /// No description provided for @projectCreateTitle.
   ///
   /// In de, this message translates to:
@@ -757,6 +805,18 @@ abstract class S {
   /// **'Noch keine Batches vorhanden.'**
   String get projectDetailNoBatches;
 
+  /// No description provided for @projectDetailNoPromptFiles.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Prompt-Dateien gefunden.'**
+  String get projectDetailNoPromptFiles;
+
+  /// No description provided for @projectDetailNoInputFiles.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Input-Dateien gefunden.'**
+  String get projectDetailNoInputFiles;
+
   /// No description provided for @batchWizardItemsTitle.
   ///
   /// In de, this message translates to:
@@ -792,6 +852,12 @@ abstract class S {
   /// In de, this message translates to:
   /// **'Batch starten'**
   String get batchWizardStartBatch;
+
+  /// No description provided for @batchWizardTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Batch Wizard - {projectName}'**
+  String batchWizardTitle(String projectName);
 
   /// No description provided for @batchWizardSelectSource.
   ///
@@ -847,6 +913,66 @@ abstract class S {
   /// **'Projekt nicht geladen.'**
   String get batchWizardProjectNotLoaded;
 
+  /// No description provided for @batchWizardSaveChangesTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Batch-Aenderungen speichern'**
+  String get batchWizardSaveChangesTitle;
+
+  /// No description provided for @batchWizardSaveChangesMessage.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieser Batch ist bereits abgeschlossen oder fehlgeschlagen. Moechtest du ihn aktualisieren oder als neuen Batch speichern?'**
+  String get batchWizardSaveChangesMessage;
+
+  /// No description provided for @batchWizardUpdateExisting.
+  ///
+  /// In de, this message translates to:
+  /// **'Bestehenden aktualisieren'**
+  String get batchWizardUpdateExisting;
+
+  /// No description provided for @batchWizardSaveAsNew.
+  ///
+  /// In de, this message translates to:
+  /// **'Als neu speichern'**
+  String get batchWizardSaveAsNew;
+
+  /// No description provided for @batchWizardRunningNotEditable.
+  ///
+  /// In de, this message translates to:
+  /// **'Laufende Batches koennen nicht bearbeitet werden.'**
+  String get batchWizardRunningNotEditable;
+
+  /// No description provided for @batchWizardGeneratedName.
+  ///
+  /// In de, this message translates to:
+  /// **'Batch {timestamp}'**
+  String batchWizardGeneratedName(String timestamp);
+
+  /// No description provided for @batchWizardInactiveModelWarning.
+  ///
+  /// In de, this message translates to:
+  /// **'Der ausgewaehlte Modellstatus ist \"{status}\". Fuer neue Laeufe sollte ein aktives Modell verwendet werden.'**
+  String batchWizardInactiveModelWarning(String status);
+
+  /// No description provided for @batchWizardItemsFallbackWarning.
+  ///
+  /// In de, this message translates to:
+  /// **'Items konnten nicht aus der Eingabequelle geladen werden. Es wird die gespeicherte Item-Anzahl verwendet.'**
+  String get batchWizardItemsFallbackWarning;
+
+  /// No description provided for @batchDeleteTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Batch loeschen?'**
+  String get batchDeleteTitle;
+
+  /// No description provided for @batchDeleteDesc.
+  ///
+  /// In de, this message translates to:
+  /// **'Batch \"{name}\" loeschen? Dies kann nicht rueckgaengig gemacht werden.'**
+  String batchDeleteDesc(String name);
+
   /// No description provided for @itemsExcelCsv.
   ///
   /// In de, this message translates to:
@@ -888,6 +1014,12 @@ abstract class S {
   /// In de, this message translates to:
   /// **'ID-Spalte'**
   String get itemsIdColumn;
+
+  /// No description provided for @itemsIdLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'ID'**
+  String get itemsIdLabel;
 
   /// No description provided for @itemsItemColumn.
   ///
@@ -985,6 +1117,42 @@ abstract class S {
   /// **'Prompt-Vorschau'**
   String get promptPreview;
 
+  /// No description provided for @promptSelectorAvailable.
+  ///
+  /// In de, this message translates to:
+  /// **'Verfuegbar'**
+  String get promptSelectorAvailable;
+
+  /// No description provided for @promptSelectorSelected.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausgewaehlt'**
+  String get promptSelectorSelected;
+
+  /// No description provided for @promptImport.
+  ///
+  /// In de, this message translates to:
+  /// **'Importieren'**
+  String get promptImport;
+
+  /// No description provided for @promptImportTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Prompt-Dateien von der Festplatte importieren'**
+  String get promptImportTooltip;
+
+  /// No description provided for @promptImportSuccess.
+  ///
+  /// In de, this message translates to:
+  /// **'{count} Prompt(s) importiert.'**
+  String promptImportSuccess(int count);
+
+  /// No description provided for @promptImportSkipped.
+  ///
+  /// In de, this message translates to:
+  /// **'Uebersprungen (existiert bereits): {names}'**
+  String promptImportSkipped(String names);
+
   /// No description provided for @modelContext.
   ///
   /// In de, this message translates to:
@@ -1002,6 +1170,42 @@ abstract class S {
   /// In de, this message translates to:
   /// **'Ausfuehrung'**
   String get execTitle;
+
+  /// No description provided for @execBatchTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Batch-Ausfuehrung'**
+  String get execBatchTitle;
+
+  /// No description provided for @execBatchNameTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Batch: {name}'**
+  String execBatchNameTitle(String name);
+
+  /// No description provided for @execBatchId.
+  ///
+  /// In de, this message translates to:
+  /// **'Batch ID:'**
+  String get execBatchId;
+
+  /// No description provided for @execCurrentPromptName.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktueller Prompt-Name:'**
+  String get execCurrentPromptName;
+
+  /// No description provided for @execCurrentModel.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktuelles Modell:'**
+  String get execCurrentModel;
+
+  /// No description provided for @execPreparingInput.
+  ///
+  /// In de, this message translates to:
+  /// **'Konfiguration geladen. Eingabedaten werden vorbereitet...'**
+  String get execPreparingInput;
 
   /// No description provided for @execRepetition.
   ///
@@ -1117,6 +1321,48 @@ abstract class S {
   /// **'Report-Generierung fehlgeschlagen: {error}'**
   String execReportsFailed(String error);
 
+  /// No description provided for @execStatusIdle.
+  ///
+  /// In de, this message translates to:
+  /// **'LEERLAUF'**
+  String get execStatusIdle;
+
+  /// No description provided for @execStatusStarting.
+  ///
+  /// In de, this message translates to:
+  /// **'STARTET'**
+  String get execStatusStarting;
+
+  /// No description provided for @execStatusRunning.
+  ///
+  /// In de, this message translates to:
+  /// **'LAEUFT'**
+  String get execStatusRunning;
+
+  /// No description provided for @execStatusPaused.
+  ///
+  /// In de, this message translates to:
+  /// **'PAUSIERT'**
+  String get execStatusPaused;
+
+  /// No description provided for @execStatusCompleted.
+  ///
+  /// In de, this message translates to:
+  /// **'ABGESCHLOSSEN'**
+  String get execStatusCompleted;
+
+  /// No description provided for @execStatusFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'FEHLER'**
+  String get execStatusFailed;
+
+  /// No description provided for @execProgressCalls.
+  ///
+  /// In de, this message translates to:
+  /// **'{percent}%  |  {completed}/{total} Aufrufe'**
+  String execProgressCalls(String percent, int completed, int total);
+
   /// No description provided for @modelsTitle.
   ///
   /// In de, this message translates to:
@@ -1177,6 +1423,23 @@ abstract class S {
   /// **'Noch keine Discovery-Daten.'**
   String get modelsNoDiscovery;
 
+  /// No description provided for @modelsShowInactive.
+  ///
+  /// In de, this message translates to:
+  /// **'Inaktive/veraltete Modelle anzeigen'**
+  String get modelsShowInactive;
+
+  /// No description provided for @modelsRegistryTileSubtitle.
+  ///
+  /// In de, this message translates to:
+  /// **'ID: {id} | Kontext: {contextWindow} | USD/M in/out: {inputPrice}/{outputPrice}'**
+  String modelsRegistryTileSubtitle(
+    String id,
+    int contextWindow,
+    double inputPrice,
+    double outputPrice,
+  );
+
   /// No description provided for @modelsIdLabel.
   ///
   /// In de, this message translates to:
@@ -1219,17 +1482,231 @@ abstract class S {
   /// **'Capabilities'**
   String get modelsCapabilities;
 
+  /// No description provided for @modelsCapabilityChat.
+  ///
+  /// In de, this message translates to:
+  /// **'chat'**
+  String get modelsCapabilityChat;
+
+  /// No description provided for @modelsCapabilityVision.
+  ///
+  /// In de, this message translates to:
+  /// **'vision'**
+  String get modelsCapabilityVision;
+
+  /// No description provided for @modelsCapabilityFn.
+  ///
+  /// In de, this message translates to:
+  /// **'fn'**
+  String get modelsCapabilityFn;
+
+  /// No description provided for @modelsCapabilityJson.
+  ///
+  /// In de, this message translates to:
+  /// **'json'**
+  String get modelsCapabilityJson;
+
+  /// No description provided for @modelsCapabilityReason.
+  ///
+  /// In de, this message translates to:
+  /// **'reason'**
+  String get modelsCapabilityReason;
+
+  /// No description provided for @modelsPricingLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Pricing (USD/M in,out): {inputPrice}, {outputPrice}'**
+  String modelsPricingLabel(double inputPrice, double outputPrice);
+
+  /// No description provided for @modelsCapabilitySummary.
+  ///
+  /// In de, this message translates to:
+  /// **'chat={chat}, vision={vision}, functionCalling={functionCalling}, jsonMode={jsonMode}, streaming={streaming}, reasoning={reasoning}, extendedThinking={extendedThinking}'**
+  String modelsCapabilitySummary(
+    String chat,
+    String vision,
+    String functionCalling,
+    String jsonMode,
+    String streaming,
+    String reasoning,
+    String extendedThinking,
+  );
+
+  /// No description provided for @modelsParameterDetails.
+  ///
+  /// In de, this message translates to:
+  /// **'{name}: supported={supported}, type={type}, min={min}, max={max}, default={defaultValue}, values={values}'**
+  String modelsParameterDetails(
+    String name,
+    String supported,
+    String type,
+    String min,
+    String max,
+    String defaultValue,
+    String values,
+  );
+
   /// No description provided for @modelsParameters.
   ///
   /// In de, this message translates to:
   /// **'Parameters'**
   String get modelsParameters;
 
+  /// No description provided for @modelsHideRegistryModelConfirm.
+  ///
+  /// In de, this message translates to:
+  /// **'Modell \"{modelId}\" aus den Registry-Modellen ausblenden? Du kannst es spaeter unter Custom Models wiederherstellen, indem du den Override loeschst.'**
+  String modelsHideRegistryModelConfirm(String modelId);
+
+  /// No description provided for @modelsHideRegistryModelDone.
+  ///
+  /// In de, this message translates to:
+  /// **'Modell \"{modelId}\" wurde ausgeblendet.'**
+  String modelsHideRegistryModelDone(String modelId);
+
+  /// No description provided for @modelsContextWindowField.
+  ///
+  /// In de, this message translates to:
+  /// **'context_window'**
+  String get modelsContextWindowField;
+
+  /// No description provided for @modelsMaxOutputTokensField.
+  ///
+  /// In de, this message translates to:
+  /// **'max_output_tokens'**
+  String get modelsMaxOutputTokensField;
+
+  /// No description provided for @modelsNoParameterDefinitions.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Parameter-Definitionen gefunden.'**
+  String get modelsNoParameterDefinitions;
+
+  /// No description provided for @modelsRawJson.
+  ///
+  /// In de, this message translates to:
+  /// **'JSON'**
+  String get modelsRawJson;
+
+  /// No description provided for @modelsContextWindowPositive.
+  ///
+  /// In de, this message translates to:
+  /// **'context_window muss eine positive Ganzzahl sein.'**
+  String get modelsContextWindowPositive;
+
+  /// No description provided for @modelsMaxOutputTokensPositive.
+  ///
+  /// In de, this message translates to:
+  /// **'max_output_tokens muss eine positive Ganzzahl sein.'**
+  String get modelsMaxOutputTokensPositive;
+
+  /// No description provided for @modelsParameterMeta.
+  ///
+  /// In de, this message translates to:
+  /// **'type={type}   min={min}   max={max}'**
+  String modelsParameterMeta(String type, String min, String max);
+
+  /// No description provided for @modelsDefaultLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'default'**
+  String get modelsDefaultLabel;
+
+  /// No description provided for @modelsApiNameOptional.
+  ///
+  /// In de, this message translates to:
+  /// **'api_name (optional)'**
+  String get modelsApiNameOptional;
+
+  /// No description provided for @modelsInvalidIntegerDefault.
+  ///
+  /// In de, this message translates to:
+  /// **'Ungueltiger Integer-Default fuer Parameter \"{key}\".'**
+  String modelsInvalidIntegerDefault(String key);
+
+  /// No description provided for @modelsInvalidFloatDefault.
+  ///
+  /// In de, this message translates to:
+  /// **'Ungueltiger Float-Default fuer Parameter \"{key}\".'**
+  String modelsInvalidFloatDefault(String key);
+
   /// No description provided for @modelsEditOverride.
   ///
   /// In de, this message translates to:
   /// **'Override bearbeiten:'**
   String get modelsEditOverride;
+
+  /// No description provided for @modelsOverrideJsonLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'overrideJson'**
+  String get modelsOverrideJsonLabel;
+
+  /// No description provided for @modelsJsonMustBeObject.
+  ///
+  /// In de, this message translates to:
+  /// **'JSON muss ein Objekt sein.'**
+  String get modelsJsonMustBeObject;
+
+  /// No description provided for @modelsInvalidJson.
+  ///
+  /// In de, this message translates to:
+  /// **'Ungueltiges JSON: {error}'**
+  String modelsInvalidJson(String error);
+
+  /// No description provided for @modelsCreateCustomTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Custom Model erstellen'**
+  String get modelsCreateCustomTitle;
+
+  /// No description provided for @modelsCreateCustomModelId.
+  ///
+  /// In de, this message translates to:
+  /// **'modelId'**
+  String get modelsCreateCustomModelId;
+
+  /// No description provided for @modelsCreateCustomProvider.
+  ///
+  /// In de, this message translates to:
+  /// **'provider'**
+  String get modelsCreateCustomProvider;
+
+  /// No description provided for @modelsModelIdRequired.
+  ///
+  /// In de, this message translates to:
+  /// **'modelId ist erforderlich.'**
+  String get modelsModelIdRequired;
+
+  /// No description provided for @modelsModelNotFound.
+  ///
+  /// In de, this message translates to:
+  /// **'Modell nicht gefunden.'**
+  String get modelsModelNotFound;
+
+  /// No description provided for @modelsDiscoveryNotReachable.
+  ///
+  /// In de, this message translates to:
+  /// **'Nicht erreichbar unter {baseUrl}'**
+  String modelsDiscoveryNotReachable(String baseUrl);
+
+  /// No description provided for @modelsDiscoveryNoModels.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Modelle gefunden unter {baseUrl}'**
+  String modelsDiscoveryNoModels(String baseUrl);
+
+  /// No description provided for @modelsDiscoveryFailedAt.
+  ///
+  /// In de, this message translates to:
+  /// **'Discovery fehlgeschlagen unter {baseUrl}: {error}'**
+  String modelsDiscoveryFailedAt(String baseUrl, String error);
+
+  /// No description provided for @modelsCustomModelDescription.
+  ///
+  /// In de, this message translates to:
+  /// **'Custom Model aus dem Model Manager hinzugefuegt'**
+  String get modelsCustomModelDescription;
 
   /// No description provided for @modelsOverrideSaved.
   ///
@@ -1242,6 +1719,12 @@ abstract class S {
   /// In de, this message translates to:
   /// **'Override geloescht.'**
   String get modelsOverrideDeleted;
+
+  /// No description provided for @modelsDiscoveryFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Discovery fehlgeschlagen: {error}'**
+  String modelsDiscoveryFailed(String error);
 
   /// No description provided for @settingsTitle.
   ///
@@ -1363,11 +1846,149 @@ abstract class S {
   /// **'Aktuelles Passwort ist falsch'**
   String get settingsWrongPassword;
 
+  /// No description provided for @settingsDecryptKeysFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorhandene Schluessel konnten nicht entschluesselt werden. Passwort wurde nicht geaendert.'**
+  String get settingsDecryptKeysFailed;
+
+  /// No description provided for @settingsReEncryptionFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Neuverschluesselung fehlgeschlagen. Passwort wurde nicht geaendert.'**
+  String get settingsReEncryptionFailed;
+
   /// No description provided for @settingsProviderTitle.
   ///
   /// In de, this message translates to:
   /// **'API-Provider'**
   String get settingsProviderTitle;
+
+  /// No description provided for @settingsProviderAdd.
+  ///
+  /// In de, this message translates to:
+  /// **'Provider hinzufuegen'**
+  String get settingsProviderAdd;
+
+  /// No description provided for @settingsProviderAddTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'API-Provider hinzufuegen'**
+  String get settingsProviderAddTitle;
+
+  /// No description provided for @settingsProviderEditTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Provider bearbeiten: {name}'**
+  String settingsProviderEditTitle(String name);
+
+  /// No description provided for @settingsProviderName.
+  ///
+  /// In de, this message translates to:
+  /// **'Name'**
+  String get settingsProviderName;
+
+  /// No description provided for @settingsProviderType.
+  ///
+  /// In de, this message translates to:
+  /// **'Typ'**
+  String get settingsProviderType;
+
+  /// No description provided for @settingsProviderBaseUrl.
+  ///
+  /// In de, this message translates to:
+  /// **'Base-URL'**
+  String get settingsProviderBaseUrl;
+
+  /// No description provided for @settingsProviderApiKey.
+  ///
+  /// In de, this message translates to:
+  /// **'API-Key'**
+  String get settingsProviderApiKey;
+
+  /// No description provided for @settingsProviderApiKeyLocalOptional.
+  ///
+  /// In de, this message translates to:
+  /// **'Optional fuer lokale Provider.'**
+  String get settingsProviderApiKeyLocalOptional;
+
+  /// No description provided for @settingsProviderApiKeyKeepHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Leer lassen, um den gespeicherten Key zu behalten.'**
+  String get settingsProviderApiKeyKeepHint;
+
+  /// No description provided for @settingsProviderApiKeyRequiredHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Fuer Cloud-Provider erforderlich.'**
+  String get settingsProviderApiKeyRequiredHint;
+
+  /// No description provided for @settingsProviderClearApiKey.
+  ///
+  /// In de, this message translates to:
+  /// **'Gespeicherten API-Key loeschen'**
+  String get settingsProviderClearApiKey;
+
+  /// No description provided for @settingsProviderEnabled.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktiviert'**
+  String get settingsProviderEnabled;
+
+  /// No description provided for @settingsProviderKeyStored.
+  ///
+  /// In de, this message translates to:
+  /// **'API-Key gespeichert'**
+  String get settingsProviderKeyStored;
+
+  /// No description provided for @settingsProviderKeyMissing.
+  ///
+  /// In de, this message translates to:
+  /// **'Kein API-Key'**
+  String get settingsProviderKeyMissing;
+
+  /// No description provided for @settingsProviderNameRequired.
+  ///
+  /// In de, this message translates to:
+  /// **'Bitte einen Providernamen eingeben.'**
+  String get settingsProviderNameRequired;
+
+  /// No description provided for @settingsProviderBaseUrlRequired.
+  ///
+  /// In de, this message translates to:
+  /// **'Bitte eine Base-URL eingeben.'**
+  String get settingsProviderBaseUrlRequired;
+
+  /// No description provided for @settingsProviderApiKeyRequired.
+  ///
+  /// In de, this message translates to:
+  /// **'Bitte einen API-Key fuer diesen Providertyp eingeben.'**
+  String get settingsProviderApiKeyRequired;
+
+  /// No description provided for @settingsProviderEncryptionLocked.
+  ///
+  /// In de, this message translates to:
+  /// **'API-Key kann nicht gespeichert werden, solange die App gesperrt ist.'**
+  String get settingsProviderEncryptionLocked;
+
+  /// No description provided for @settingsProviderAdded.
+  ///
+  /// In de, this message translates to:
+  /// **'Provider hinzugefuegt.'**
+  String get settingsProviderAdded;
+
+  /// No description provided for @settingsProviderUpdated.
+  ///
+  /// In de, this message translates to:
+  /// **'Provider aktualisiert.'**
+  String get settingsProviderUpdated;
+
+  /// No description provided for @settingsProviderSaveError.
+  ///
+  /// In de, this message translates to:
+  /// **'Provider konnte nicht gespeichert werden: {error}'**
+  String settingsProviderSaveError(String error);
 
   /// No description provided for @settingsNoProviders.
   ///
@@ -1512,6 +2133,24 @@ abstract class S {
   /// In de, this message translates to:
   /// **'Level:'**
   String get logLevelLabel;
+
+  /// No description provided for @logLevelInfo.
+  ///
+  /// In de, this message translates to:
+  /// **'INFO'**
+  String get logLevelInfo;
+
+  /// No description provided for @logLevelWarn.
+  ///
+  /// In de, this message translates to:
+  /// **'WARN'**
+  String get logLevelWarn;
+
+  /// No description provided for @logLevelError.
+  ///
+  /// In de, this message translates to:
+  /// **'ERROR'**
+  String get logLevelError;
 
   /// No description provided for @noSourceSelected.
   ///

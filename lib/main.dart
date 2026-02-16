@@ -7,10 +7,11 @@ import 'package:logging/logging.dart';
 
 import 'app.dart';
 import 'providers/batch_execution_provider.dart';
+import 'providers/database_provider.dart';
 
 final _log = Logger('XtractAid');
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Configure logging.
@@ -48,6 +49,17 @@ void main() {
   };
 
   final container = ProviderContainer();
+  try {
+    final db = container.read(databaseProvider);
+    final repaired = await db.batchesDao.recoverStaleRunningBatches();
+    if (repaired > 0) {
+      _log.warning(
+        'Recovered $repaired stale running batch(es) after app restart.',
+      );
+    }
+  } catch (e, st) {
+    _log.warning('Failed to recover stale batch statuses on startup.', e, st);
+  }
 
   runApp(
     UncontrolledProviderScope(
@@ -62,10 +74,7 @@ void main() {
 
 /// Watches app lifecycle to checkpoint running batches on pause/detach.
 class _AppLifecycleWrapper extends StatefulWidget {
-  const _AppLifecycleWrapper({
-    required this.container,
-    required this.child,
-  });
+  const _AppLifecycleWrapper({required this.container, required this.child});
 
   final ProviderContainer container;
   final Widget child;
@@ -100,8 +109,7 @@ class _AppLifecycleWrapperState extends State<_AppLifecycleWrapper>
 
   void _checkpointRunningBatch() {
     try {
-      final notifier =
-          widget.container.read(batchExecutionProvider.notifier);
+      final notifier = widget.container.read(batchExecutionProvider.notifier);
       final batchState = widget.container.read(batchExecutionProvider);
 
       if (batchState.status == BatchExecutionStatus.running) {

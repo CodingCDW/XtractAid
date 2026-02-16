@@ -3,8 +3,9 @@ import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../data/database/app_database.dart';
@@ -20,10 +21,35 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  static const _providerDefaults = <String, String>{
+    'openai': 'https://api.openai.com/v1',
+    'anthropic': 'https://api.anthropic.com/v1',
+    'google': 'https://generativelanguage.googleapis.com/v1beta',
+    'openrouter': 'https://openrouter.ai/api/v1',
+    'ollama': 'http://localhost:11434',
+    'lmstudio': 'http://localhost:1234/v1',
+  };
+
   String _language = 'de';
   bool _strictLocalMode = false;
   int _checkpointInterval = 10;
   bool _isLoading = true;
+
+  bool _isLocalProviderType(String type) {
+    return type == 'ollama' || type == 'lmstudio';
+  }
+
+  String _providerDisplayName(String type) {
+    return switch (type) {
+      'openai' => 'OpenAI',
+      'anthropic' => 'Anthropic',
+      'google' => 'Google',
+      'openrouter' => 'OpenRouter',
+      'ollama' => 'Ollama',
+      'lmstudio' => 'LM Studio',
+      _ => type,
+    };
+  }
 
   @override
   void initState() {
@@ -303,8 +329,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       }
                     } catch (e) {
                       setDialogState(() {
-                        errorText =
-                            'Failed to decrypt existing keys. Password not changed.';
+                        errorText = t.settingsDecryptKeysFailed;
                       });
                       return;
                     }
@@ -326,8 +351,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       // Rollback: restore old encryption state
                       enc.unlock(currentController.text, salt);
                       setDialogState(() {
-                        errorText =
-                            'Re-encryption failed. Password not changed.';
+                        errorText = t.settingsReEncryptionFailed;
                       });
                       return;
                     }
@@ -369,7 +393,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _showManageProvidersDialog() async {
     final db = ref.read(databaseProvider);
-    final providers = await db.providersDao.getAll();
+    final providers = await db.providersDao.getAll()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     if (!mounted) return;
 
@@ -379,90 +404,183 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         final t = S.of(dialogContext)!;
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            Future<void> reloadProviders() async {
+              final updated = await db.providersDao.getAll()
+                ..sort(
+                  (a, b) =>
+                      a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+                );
+              setDialogState(
+                () => providers
+                  ..clear()
+                  ..addAll(updated),
+              );
+            }
+
             return AlertDialog(
               title: Text(t.settingsProviderTitle),
               content: SizedBox(
                 width: 500,
                 height: 400,
-                child: providers.isEmpty
-                    ? Center(child: Text(t.settingsNoProviders))
-                    : ListView.separated(
-                        itemCount: providers.length,
-                        separatorBuilder: (_, _) => const Divider(),
-                        itemBuilder: (context, index) {
-                          final p = providers[index];
-                          final hasKey = p.encryptedApiKey != null;
-                          return ListTile(
-                            leading: Icon(
-                              hasKey ? Icons.vpn_key : Icons.link,
-                              color: p.isEnabled
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Colors.grey,
-                            ),
-                            title: Text(p.name),
-                            subtitle: Text('${p.type} - ${p.baseUrl}'),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Switch(
-                                  value: p.isEnabled,
-                                  onChanged: (enabled) async {
-                                    await db.providersDao.updateProvider(
-                                      p.id,
-                                      ProvidersCompanion(
-                                        isEnabled: Value(enabled),
-                                      ),
-                                    );
-                                    final updated =
-                                        await db.providersDao.getAll();
-                                    setDialogState(() => providers
-                                      ..clear()
-                                      ..addAll(updated));
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline),
-                                  onPressed: () async {
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) {
-                                        final t2 = S.of(ctx)!;
-                                        return AlertDialog(
-                                          title: Text(t2.settingsDeleteProvider),
-                                          content: Text(
-                                            t2.settingsDeleteProviderDesc(p.name),
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.of(ctx).pop(false),
-                                              child: Text(t2.actionCancel),
-                                            ),
-                                            FilledButton(
-                                              onPressed: () =>
-                                                  Navigator.of(ctx).pop(true),
-                                              child: Text(t2.actionDelete),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                    if (confirm == true) {
-                                      await db.providersDao
-                                          .deleteProvider(p.id);
-                                      final updated =
-                                          await db.providersDao.getAll();
-                                      setDialogState(() => providers
-                                        ..clear()
-                                        ..addAll(updated));
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
+                child: Column(
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () async {
+                          final payload = await _showProviderEditorDialog();
+                          if (payload == null) {
+                            return;
+                          }
+                          final saved = await _saveProvider(payload);
+                          if (!saved) {
+                            return;
+                          }
+                          await reloadProviders();
                         },
+                        icon: const Icon(Icons.add),
+                        label: Text(t.settingsProviderAdd),
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: providers.isEmpty
+                          ? Center(child: Text(t.settingsNoProviders))
+                          : ListView.separated(
+                              itemCount: providers.length,
+                              separatorBuilder: (_, _) => const Divider(),
+                              itemBuilder: (context, index) {
+                                final p = providers[index];
+                                final hasKey = p.encryptedApiKey != null;
+                                final providerType = _providerDisplayName(
+                                  p.type,
+                                );
+                                final keyStatus = hasKey
+                                    ? t.settingsProviderKeyStored
+                                    : t.settingsProviderKeyMissing;
+                                return ListTile(
+                                  dense: true,
+                                  visualDensity: VisualDensity.compact,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  leading: Icon(
+                                    hasKey ? Icons.vpn_key : Icons.link,
+                                    color: p.isEnabled
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.grey,
+                                  ),
+                                  title: Text(p.name),
+                                  subtitle: Text('$providerType • $keyStatus\n${p.baseUrl}'),
+                                  trailing: Wrap(
+                                    spacing: 2,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      IconButton(
+                                        tooltip: t.actionChange,
+                                        visualDensity: VisualDensity.compact,
+                                        constraints: const BoxConstraints.tightFor(
+                                          width: 32,
+                                          height: 32,
+                                        ),
+                                        icon: const Icon(Icons.edit_outlined),
+                                        onPressed: () async {
+                                          final payload =
+                                              await _showProviderEditorDialog(
+                                            existing: p,
+                                          );
+                                          if (payload == null) {
+                                            return;
+                                          }
+                                          final saved = await _saveProvider(
+                                            payload,
+                                            existing: p,
+                                          );
+                                          if (!saved) {
+                                            return;
+                                          }
+                                          await reloadProviders();
+                                        },
+                                      ),
+                                      Tooltip(
+                                        message: t.settingsProviderEnabled,
+                                        child: Switch(
+                                          value: p.isEnabled,
+                                          onChanged: (enabled) async {
+                                            await db.providersDao.updateProvider(
+                                              p.id,
+                                              ProvidersCompanion(
+                                                isEnabled: Value(enabled),
+                                              ),
+                                            );
+                                            await reloadProviders();
+                                          },
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: t.actionDelete,
+                                        visualDensity: VisualDensity.compact,
+                                        constraints: const BoxConstraints.tightFor(
+                                          width: 32,
+                                          height: 32,
+                                        ),
+                                        icon: Icon(
+                                          Icons.delete_outline,
+                                          color: Theme.of(context).colorScheme.error,
+                                        ),
+                                        onPressed: () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (ctx) {
+                                              final t2 = S.of(ctx)!;
+                                              return AlertDialog(
+                                                title: Text(
+                                                  t2.settingsDeleteProvider,
+                                                ),
+                                                content: Text(
+                                                  t2.settingsDeleteProviderDesc(
+                                                    p.name,
+                                                  ),
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                      ctx,
+                                                    ).pop(false),
+                                                    child: Text(
+                                                      t2.actionCancel,
+                                                    ),
+                                                  ),
+                                                  FilledButton(
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                      ctx,
+                                                    ).pop(true),
+                                                    child: Text(
+                                                      t2.actionDelete,
+                                                    ),
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          );
+                                          if (confirm == true) {
+                                            await db.providersDao.deleteProvider(
+                                              p.id,
+                                            );
+                                            await reloadProviders();
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -475,6 +593,277 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       },
     );
+  }
+
+  Future<_ProviderEditPayload?> _showProviderEditorDialog({
+    Provider? existing,
+  }) async {
+    final providerTypes = _providerDefaults.keys.toList();
+    final initialType = existing?.type ?? providerTypes.first;
+    final initialBaseUrl = existing?.baseUrl ?? _providerDefaults[initialType]!;
+
+    final nameController = TextEditingController(
+      text: existing?.name ?? _providerDisplayName(initialType),
+    );
+    final baseUrlController = TextEditingController(text: initialBaseUrl);
+    final apiKeyController = TextEditingController();
+    var selectedType = initialType;
+    var isEnabled = existing?.isEnabled ?? true;
+    var clearApiKey = false;
+    String? errorText;
+    final hasExistingKey = existing?.encryptedApiKey != null;
+
+    final payload = await showDialog<_ProviderEditPayload>(
+      context: context,
+      builder: (dialogContext) {
+        final t2 = S.of(dialogContext)!;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isLocal = _isLocalProviderType(selectedType);
+            final helperText = isLocal
+                ? t2.settingsProviderApiKeyLocalOptional
+                : hasExistingKey
+                    ? t2.settingsProviderApiKeyKeepHint
+                    : t2.settingsProviderApiKeyRequiredHint;
+
+            return AlertDialog(
+              title: Text(
+                existing == null
+                    ? t2.settingsProviderAddTitle
+                    : t2.settingsProviderEditTitle(existing.name),
+              ),
+              content: SizedBox(
+                width: 520,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: t2.settingsProviderName,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedType,
+                      decoration: InputDecoration(
+                        labelText: t2.settingsProviderType,
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: providerTypes
+                          .map(
+                            (type) => DropdownMenuItem<String>(
+                              value: type,
+                              child: Text(_providerDisplayName(type)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        final previousDefault =
+                            _providerDefaults[selectedType] ?? '';
+                        final nextDefault = _providerDefaults[value] ?? '';
+                        setDialogState(() {
+                          selectedType = value;
+                          final current = baseUrlController.text.trim();
+                          if (current.isEmpty || current == previousDefault) {
+                            baseUrlController.text = nextDefault;
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: baseUrlController,
+                      decoration: InputDecoration(
+                        labelText: t2.settingsProviderBaseUrl,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: apiKeyController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: t2.settingsProviderApiKey,
+                        helperText: helperText,
+                      ),
+                    ),
+                    if (hasExistingKey) ...[
+                      const SizedBox(height: 4),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: clearApiKey,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            clearApiKey = value ?? false;
+                          });
+                        },
+                        title: Text(t2.settingsProviderClearApiKey),
+                      ),
+                    ],
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: isEnabled,
+                      onChanged: (value) {
+                        setDialogState(() {
+                          isEnabled = value;
+                        });
+                      },
+                      title: Text(t2.settingsProviderEnabled),
+                    ),
+                    if (errorText != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          errorText!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(t2.actionCancel),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    final baseUrl = baseUrlController.text.trim();
+                    final apiKey = apiKeyController.text.trim();
+                    final isLocal = _isLocalProviderType(selectedType);
+                    final isCreate = existing == null;
+
+                    if (name.isEmpty) {
+                      setDialogState(() {
+                        errorText = t2.settingsProviderNameRequired;
+                      });
+                      return;
+                    }
+                    if (baseUrl.isEmpty) {
+                      setDialogState(() {
+                        errorText = t2.settingsProviderBaseUrlRequired;
+                      });
+                      return;
+                    }
+                    if (!isLocal && isCreate && apiKey.isEmpty) {
+                      setDialogState(() {
+                        errorText = t2.settingsProviderApiKeyRequired;
+                      });
+                      return;
+                    }
+
+                    Navigator.of(context).pop(
+                      _ProviderEditPayload(
+                        name: name,
+                        type: selectedType,
+                        baseUrl: baseUrl,
+                        apiKey: apiKey,
+                        clearApiKey: clearApiKey,
+                        isEnabled: isEnabled,
+                      ),
+                    );
+                  },
+                  child: Text(existing == null ? t2.actionCreate : t2.actionSave),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    nameController.dispose();
+    baseUrlController.dispose();
+    apiKeyController.dispose();
+    return payload;
+  }
+
+  Future<bool> _saveProvider(
+    _ProviderEditPayload payload, {
+    Provider? existing,
+  }) async {
+    final t = S.of(context)!;
+    final db = ref.read(databaseProvider);
+    final enc = ref.read(encryptionProvider);
+    final hasNewApiKey = payload.apiKey.isNotEmpty;
+
+    Uint8List? encryptedApiKey;
+    if (hasNewApiKey) {
+      if (!enc.isUnlocked) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(t.settingsProviderEncryptionLocked)),
+          );
+        return false;
+      }
+      encryptedApiKey = enc.encryptData(payload.apiKey);
+    }
+
+    try {
+      if (existing == null) {
+        await db.providersDao.insertProvider(
+          ProvidersCompanion(
+            id: Value(const Uuid().v4()),
+            name: Value(payload.name),
+            type: Value(payload.type),
+            baseUrl: Value(payload.baseUrl),
+            encryptedApiKey: hasNewApiKey
+                ? Value(encryptedApiKey)
+                : const Value.absent(),
+            isEnabled: Value(payload.isEnabled),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      } else {
+        await db.providersDao.updateProvider(
+          existing.id,
+          ProvidersCompanion(
+            name: Value(payload.name),
+            type: Value(payload.type),
+            baseUrl: Value(payload.baseUrl),
+            encryptedApiKey: hasNewApiKey
+                ? Value(encryptedApiKey)
+                : payload.clearApiKey
+                    ? const Value(null)
+                    : const Value.absent(),
+            isEnabled: Value(payload.isEnabled),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) {
+        return false;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(t.settingsProviderSaveError('$e'))),
+        );
+      return false;
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              existing == null
+                  ? t.settingsProviderAdded
+                  : t.settingsProviderUpdated,
+            ),
+          ),
+        );
+    }
+    return true;
   }
 
   Future<void> _showResetDialog() async {
@@ -522,4 +911,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (mounted) context.go('/setup');
   }
+}
+
+class _ProviderEditPayload {
+  const _ProviderEditPayload({
+    required this.name,
+    required this.type,
+    required this.baseUrl,
+    required this.apiKey,
+    required this.clearApiKey,
+    required this.isEnabled,
+  });
+
+  final String name;
+  final String type;
+  final String baseUrl;
+  final String apiKey;
+  final bool clearApiKey;
+  final bool isEnabled;
 }

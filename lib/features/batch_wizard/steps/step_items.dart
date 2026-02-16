@@ -105,7 +105,7 @@ class StepItems extends StatelessWidget {
           Text(progressText!),
         ],
         const SizedBox(height: 12),
-        Text('${t.itemsSummary} ${parsedItems.length} Items, ${warnings.length} Warnungen'),
+        Text('${t.itemsSummary} ${t.itemsCount(parsedItems.length, warnings.length)}'),
         if (warnings.isNotEmpty) ...[
           const SizedBox(height: 8),
           Container(
@@ -127,9 +127,9 @@ class StepItems extends StatelessWidget {
             height: 260,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columns: [
-                  const DataColumn(label: Text('ID')),
+                child: DataTable(
+                  columns: [
+                  DataColumn(label: Text(t.itemsIdLabel)),
                   DataColumn(label: Text(t.itemsPreviewText)),
                 ],
                 rows: preview

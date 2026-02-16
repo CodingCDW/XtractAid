@@ -97,7 +97,7 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Fortfahren'),
+              child: Text(t.actionContinue),
             ),
           ],
         );
@@ -136,9 +136,7 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
       }
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(S.of(context)!.authResetFailed)),
-        );
+        ..showSnackBar(SnackBar(content: Text(S.of(context)!.authResetFailed)));
     } finally {
       if (mounted) {
         setState(() {
@@ -167,7 +165,7 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'XtractAid',
+                  t.appTitle,
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 24),

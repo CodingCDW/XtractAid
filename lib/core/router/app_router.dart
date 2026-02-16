@@ -45,6 +45,17 @@ abstract final class AppRouter {
                       },
                     ),
                     GoRoute(
+                      path: 'batch/:batchId/edit',
+                      builder: (context, state) {
+                        final projectId = state.pathParameters['projectId']!;
+                        final batchId = state.pathParameters['batchId']!;
+                        return BatchWizardScreen(
+                          projectId: projectId,
+                          batchId: batchId,
+                        );
+                      },
+                    ),
+                    GoRoute(
                       path: 'batch/:batchId',
                       builder: (context, state) {
                         final projectId = state.pathParameters['projectId']!;

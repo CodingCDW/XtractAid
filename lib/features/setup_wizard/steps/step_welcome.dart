@@ -24,7 +24,7 @@ class StepWelcome extends StatelessWidget {
           children: [
             Icon(Icons.auto_awesome, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
-            Text('XtractAid', style: theme.textTheme.headlineSmall),
+            Text(t.appTitle, style: theme.textTheme.headlineSmall),
           ],
         ),
         const SizedBox(height: 12),

@@ -36,7 +36,88 @@ class LlmResponse {
 class LlmApiService {
   final Dio _dio;
 
-  LlmApiService({Dio? dio}) : _dio = dio ?? Dio();
+  LlmApiService({Dio? dio})
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 15),
+              sendTimeout: const Duration(seconds: 30),
+              receiveTimeout: const Duration(minutes: 5),
+            ),
+          );
+
+  /// Filters [parameters] to only include keys in [allowedKeys],
+  /// optionally remapping key names via [keyRemap]. Null values are skipped.
+  static Map<String, dynamic> filterParameters({
+    required Map<String, dynamic> parameters,
+    required Set<String> allowedKeys,
+    Map<String, String> keyRemap = const {},
+  }) {
+    final result = <String, dynamic>{};
+    for (final key in allowedKeys) {
+      if (!parameters.containsKey(key)) continue;
+      final value = parameters[key];
+      if (value == null) continue;
+      final outputKey = keyRemap[key] ?? key;
+      result[outputKey] = value;
+    }
+    return result;
+  }
+
+  /// Returns a copy of [body] with message arrays replaced by summaries
+  /// so we can log parameter keys without dumping the full prompt text.
+  static Map<String, dynamic> _sanitizeForLog(Map<String, dynamic> body) {
+    final sanitized = Map<String, dynamic>.from(body);
+    if (sanitized['messages'] is List) {
+      sanitized['messages'] =
+          '<${(sanitized['messages'] as List).length} messages>';
+    }
+    if (sanitized['contents'] is List) {
+      sanitized['contents'] =
+          '<${(sanitized['contents'] as List).length} contents>';
+    }
+    return sanitized;
+  }
+
+  /// Resolves a parameter value from [parameters] using canonical key + aliases.
+  /// Supports dotted aliases (for example `reasoning.effort`).
+  static dynamic _getParameter(
+    Map<String, dynamic> parameters,
+    String key, {
+    List<String> aliases = const [],
+  }) {
+    for (final candidate in <String>[key, ...aliases]) {
+      if (parameters.containsKey(candidate)) {
+        final direct = parameters[candidate];
+        if (direct != null) {
+          return direct;
+        }
+      }
+      if (candidate.contains('.')) {
+        final dotted = _readDottedValue(parameters, candidate);
+        if (dotted != null) {
+          return dotted;
+        }
+      }
+    }
+    return null;
+  }
+
+  static dynamic _readDottedValue(Map<String, dynamic> map, String path) {
+    dynamic current = map;
+    for (final segment in path.split('.')) {
+      if (current is! Map) {
+        return null;
+      }
+      final next = current[segment];
+      if (next == null) {
+        return null;
+      }
+      current = next;
+    }
+    return current;
+  }
 
   /// Call an LLM API with retry logic.
   ///
@@ -67,9 +148,11 @@ class LlmApiService {
 
         if (statusCode == 429) {
           // Rate limit – wait longer
-          final waitSeconds = AppConstants.rateLimitDelay.inSeconds +
-              (attempt * 10);
-          _log.warning('Rate limited (429). Waiting ${waitSeconds}s (attempt ${attempt + 1})');
+          final waitSeconds =
+              AppConstants.rateLimitDelay.inSeconds + (attempt * 10);
+          _log.warning(
+            'Rate limited (429). Waiting ${waitSeconds}s (attempt ${attempt + 1})',
+          );
           await Future.delayed(Duration(seconds: waitSeconds));
           continue;
         }
@@ -77,7 +160,9 @@ class LlmApiService {
         if (statusCode != null && statusCode >= 500) {
           // Server error – exponential backoff
           final waitSeconds = pow(2, attempt).toInt();
-          _log.warning('Server error ($statusCode). Waiting ${waitSeconds}s (attempt ${attempt + 1})');
+          _log.warning(
+            'Server error ($statusCode). Waiting ${waitSeconds}s (attempt ${attempt + 1})',
+          );
           await Future.delayed(Duration(seconds: waitSeconds));
           continue;
         }
@@ -85,17 +170,24 @@ class LlmApiService {
         if (e.type == DioExceptionType.connectionTimeout ||
             e.type == DioExceptionType.connectionError) {
           final waitSeconds = pow(2, attempt).toInt();
-          _log.warning('Connection error. Waiting ${waitSeconds}s (attempt ${attempt + 1})');
+          _log.warning(
+            'Connection error. Waiting ${waitSeconds}s (attempt ${attempt + 1})',
+          );
           await Future.delayed(Duration(seconds: waitSeconds));
           continue;
         }
 
         // Client error (4xx except 429) – don't retry
+        _log.severe(
+          'Client error ($statusCode) for $providerType model=$modelId. '
+          'Response: ${e.response?.data}',
+        );
         rethrow;
       }
     }
 
-    throw lastError ?? Exception('LLM call failed after ${AppConstants.maxRetries} retries');
+    throw lastError ??
+        Exception('LLM call failed after ${AppConstants.maxRetries} retries');
   }
 
   Future<LlmResponse> _callProvider({
@@ -117,6 +209,7 @@ class LlmApiService {
           apiKey: apiKey,
           parameters: parameters,
           isOpenRouter: providerType == 'openrouter',
+          isNativeOpenAi: providerType == 'openai',
         );
       case 'anthropic':
         return _callAnthropic(
@@ -154,6 +247,7 @@ class LlmApiService {
     String? apiKey,
     Map<String, dynamic> parameters = const {},
     bool isOpenRouter = false,
+    bool isNativeOpenAi = false,
   }) async {
     final headers = <String, String>{};
     if (apiKey != null && apiKey.isNotEmpty) {
@@ -164,17 +258,92 @@ class LlmApiService {
       headers['X-Title'] = 'XtractAid';
     }
 
+    // Only send parameters the OpenAI Chat Completions API accepts.
+    // Native OpenAI remaps max_tokens -> max_completion_tokens for newer models.
+    const openAiAllowed = {
+      'temperature',
+      'max_tokens',
+      'top_p',
+      'frequency_penalty',
+      'presence_penalty',
+      'seed',
+    };
+    final keyRemap = isNativeOpenAi
+        ? const {'max_tokens': 'max_completion_tokens'}
+        : const <String, String>{};
+
+    final normalizedParameters = <String, dynamic>{};
+    final temperature = _getParameter(parameters, 'temperature');
+    if (temperature != null) {
+      normalizedParameters['temperature'] = temperature;
+    }
+    final maxTokens = _getParameter(
+      parameters,
+      'max_tokens',
+      aliases: const ['max_output_tokens', 'max_completion_tokens'],
+    );
+    if (maxTokens != null) {
+      normalizedParameters['max_tokens'] = maxTokens;
+    }
+    final topP = _getParameter(parameters, 'top_p', aliases: const ['topP']);
+    if (topP != null) {
+      normalizedParameters['top_p'] = topP;
+    }
+    final frequencyPenalty = _getParameter(
+      parameters,
+      'frequency_penalty',
+      aliases: const ['frequencyPenalty'],
+    );
+    if (frequencyPenalty != null) {
+      normalizedParameters['frequency_penalty'] = frequencyPenalty;
+    }
+    final presencePenalty = _getParameter(
+      parameters,
+      'presence_penalty',
+      aliases: const ['presencePenalty'],
+    );
+    if (presencePenalty != null) {
+      normalizedParameters['presence_penalty'] = presencePenalty;
+    }
+    final seed = _getParameter(parameters, 'seed');
+    if (seed != null) {
+      normalizedParameters['seed'] = seed;
+    }
+
+    final filtered = filterParameters(
+      parameters: normalizedParameters,
+      allowedKeys: openAiAllowed,
+      keyRemap: keyRemap,
+    );
+
     final body = <String, dynamic>{
       'model': modelId,
       'messages': messages.map((m) => m.toJson()).toList(),
-      ...parameters,
+      ...filtered,
     };
+
+    // reasoning_effort is a special case: only add when not "none"
+    // (absence = default = none). Non-reasoning models would reject it.
+    final reasoningEffort = _getParameter(
+      parameters,
+      'reasoning_effort',
+      aliases: const ['reasoning.effort'],
+    );
+    if (reasoningEffort != null &&
+        reasoningEffort is String &&
+        reasoningEffort != 'none') {
+      body['reasoning_effort'] = reasoningEffort;
+    }
+
+    _log.fine('OpenAI request body: ${_sanitizeForLog(body)}');
 
     final response = await _dio.post(
       '$baseUrl/chat/completions',
       data: body,
       options: Options(
         headers: headers,
+        connectTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(minutes: 5),
       ),
     );
@@ -215,16 +384,48 @@ class LlmApiService {
       }
     }
 
+    // Only send parameters the Anthropic Messages API accepts.
+    const anthropicAllowed = {'temperature', 'max_tokens', 'top_p', 'top_k'};
+    final normalizedParameters = <String, dynamic>{};
+    final temperature = _getParameter(parameters, 'temperature');
+    if (temperature != null) {
+      normalizedParameters['temperature'] = temperature;
+    }
+    final maxTokensParameter = _getParameter(
+      parameters,
+      'max_tokens',
+      aliases: const ['max_output_tokens'],
+    );
+    if (maxTokensParameter != null) {
+      normalizedParameters['max_tokens'] = maxTokensParameter;
+    }
+    final topP = _getParameter(parameters, 'top_p', aliases: const ['topP']);
+    if (topP != null) {
+      normalizedParameters['top_p'] = topP;
+    }
+    final topK = _getParameter(parameters, 'top_k', aliases: const ['topK']);
+    if (topK != null) {
+      normalizedParameters['top_k'] = topK;
+    }
+
+    final filtered = filterParameters(
+      parameters: normalizedParameters,
+      allowedKeys: anthropicAllowed,
+    );
+
+    // max_tokens is required by Anthropic -- always set with fallback.
+    final maxTokens = filtered.remove('max_tokens') ?? 4096;
+
     final body = <String, dynamic>{
       'model': modelId,
       'messages': apiMessages,
       // ignore: use_null_aware_elements
       if (systemPrompt != null) 'system': systemPrompt,
-      'max_tokens': parameters['max_tokens'] ?? 4096,
-      ...parameters,
+      'max_tokens': maxTokens,
+      ...filtered,
     };
-    // Remove max_tokens from spread if already set
-    body['max_tokens'] = parameters['max_tokens'] ?? 4096;
+
+    _log.fine('Anthropic request body: ${_sanitizeForLog(body)}');
 
     final response = await _dio.post(
       '$baseUrl/messages',
@@ -235,6 +436,8 @@ class LlmApiService {
           'anthropic-version': '2023-06-01',
           'content-type': 'application/json',
         },
+        connectTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(minutes: 5),
       ),
     );
@@ -273,27 +476,34 @@ class LlmApiService {
         contents.add({
           'role': m.role == 'assistant' ? 'model' : 'user',
           'parts': [
-            {'text': m.content}
+            {'text': m.content},
           ],
         });
       }
     }
+
+    final temperature = _getParameter(parameters, 'temperature');
+    final maxTokens = _getParameter(
+      parameters,
+      'max_tokens',
+      aliases: const ['max_output_tokens', 'maxOutputTokens'],
+    );
+    final topP = _getParameter(parameters, 'top_p', aliases: const ['topP']);
+    final topK = _getParameter(parameters, 'top_k', aliases: const ['topK']);
 
     final body = <String, dynamic>{
       'contents': contents,
       if (systemInstruction != null)
         'systemInstruction': {
           'parts': [
-            {'text': systemInstruction}
-          ]
+            {'text': systemInstruction},
+          ],
         },
       'generationConfig': {
-        if (parameters.containsKey('temperature'))
-          'temperature': parameters['temperature'],
-        if (parameters.containsKey('max_tokens'))
-          'maxOutputTokens': parameters['max_tokens'],
-        if (parameters.containsKey('top_p')) 'topP': parameters['top_p'],
-        if (parameters.containsKey('top_k')) 'topK': parameters['top_k'],
+        if (temperature != null) 'temperature': temperature,
+        if (maxTokens != null) 'maxOutputTokens': maxTokens,
+        if (topP != null) 'topP': topP,
+        if (topK != null) 'topK': topK,
       },
     };
 
@@ -302,6 +512,8 @@ class LlmApiService {
       data: body,
       options: Options(
         headers: {'x-goog-api-key': apiKey},
+        connectTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(minutes: 5),
       ),
     );
@@ -313,7 +525,9 @@ class LlmApiService {
     }
 
     final candidate = candidates.first as Map<String, dynamic>;
-    final parts = (candidate['content'] as Map<String, dynamic>?)?['parts'] as List? ?? [];
+    final parts =
+        (candidate['content'] as Map<String, dynamic>?)?['parts'] as List? ??
+        [];
     final text = parts.map((p) => p['text'] as String? ?? '').join();
     final usage = data['usageMetadata'] as Map<String, dynamic>?;
 
@@ -332,36 +546,165 @@ class LlmApiService {
     required List<ChatMessage> messages,
     Map<String, dynamic> parameters = const {},
   }) async {
+    final normalizedBaseUrl = _normalizeOllamaBaseUrl(baseUrl);
+    final temperature = _getParameter(parameters, 'temperature');
+    final topP = _getParameter(parameters, 'top_p', aliases: const ['topP']);
+    final maxTokens = _getParameter(
+      parameters,
+      'max_tokens',
+      aliases: const ['num_predict', 'max_output_tokens'],
+    );
+    final options = <String, dynamic>{
+      if (temperature != null) 'temperature': temperature,
+      if (topP != null) 'top_p': topP,
+      if (maxTokens != null) 'num_predict': maxTokens,
+    };
     final body = <String, dynamic>{
       'model': modelId,
       'messages': messages.map((m) => m.toJson()).toList(),
       'stream': false,
-      if (parameters.isNotEmpty)
-        'options': {
-          if (parameters.containsKey('temperature'))
-            'temperature': parameters['temperature'],
-          if (parameters.containsKey('top_p'))
-            'top_p': parameters['top_p'],
-          if (parameters.containsKey('max_tokens'))
-            'num_predict': parameters['max_tokens'],
-        },
+      if (options.isNotEmpty) 'options': options,
     };
 
+    try {
+      final response = await _dio.post(
+        '$normalizedBaseUrl/api/chat',
+        data: body,
+        options: Options(
+          connectTimeout: const Duration(seconds: 15),
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(minutes: 10),
+        ),
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      final message = data['message'] as Map<String, dynamic>? ?? {};
+
+      return LlmResponse(
+        content: message['content'] as String? ?? '',
+        inputTokens: data['prompt_eval_count'] as int? ?? 0,
+        outputTokens: data['eval_count'] as int? ?? 0,
+        finishReason: data['done'] == true ? 'stop' : null,
+      );
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      final missingModel = _extractOllamaMissingModel(e.response?.data);
+      if (statusCode == 404 && missingModel != null) {
+        throw Exception(
+          'Ollama model "$missingModel" not found. '
+          'Check `ollama list` and use the exact model tag (for example `gemma3:4b`).',
+        );
+      }
+
+      // Older Ollama builds may not expose /api/chat yet.
+      if (statusCode == 404) {
+        _log.warning(
+          'Ollama /api/chat returned 404. Falling back to /api/generate.',
+        );
+        return _callOllamaGenerate(
+          baseUrl: normalizedBaseUrl,
+          modelId: modelId,
+          messages: messages,
+          options: options,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  Future<LlmResponse> _callOllamaGenerate({
+    required String baseUrl,
+    required String modelId,
+    required List<ChatMessage> messages,
+    required Map<String, dynamic> options,
+  }) async {
     final response = await _dio.post(
-      '$baseUrl/api/chat',
-      data: body,
-      options: Options(receiveTimeout: const Duration(minutes: 10)),
+      '$baseUrl/api/generate',
+      data: {
+        'model': modelId,
+        'prompt': _messagesToOllamaPrompt(messages),
+        'stream': false,
+        if (options.isNotEmpty) 'options': options,
+      },
+      options: Options(
+        connectTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(minutes: 10),
+      ),
     );
 
     final data = response.data as Map<String, dynamic>;
-    final message = data['message'] as Map<String, dynamic>? ?? {};
-
     return LlmResponse(
-      content: message['content'] as String? ?? '',
+      content: data['response'] as String? ?? '',
       inputTokens: data['prompt_eval_count'] as int? ?? 0,
       outputTokens: data['eval_count'] as int? ?? 0,
       finishReason: data['done'] == true ? 'stop' : null,
     );
+  }
+
+  String _normalizeOllamaBaseUrl(String baseUrl) {
+    var normalized = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
+    if (normalized.isEmpty) {
+      return 'http://localhost:11434';
+    }
+
+    const suffixes = <String>[
+      '/v1/api/chat',
+      '/v1/api/generate',
+      '/v1/api',
+      '/v1',
+      '/api/chat',
+      '/api/generate',
+      '/api',
+    ];
+
+    final lower = normalized.toLowerCase();
+    for (final suffix in suffixes) {
+      if (lower.endsWith(suffix)) {
+        normalized = normalized.substring(0, normalized.length - suffix.length);
+        break;
+      }
+    }
+
+    return normalized.replaceAll(RegExp(r'/+$'), '');
+  }
+
+  String? _extractOllamaMissingModel(dynamic responseData) {
+    String? errorMessage;
+    if (responseData is Map && responseData['error'] is String) {
+      errorMessage = responseData['error'] as String;
+    } else if (responseData is String) {
+      errorMessage = responseData;
+    }
+    if (errorMessage == null) {
+      return null;
+    }
+
+    final match = RegExp(
+      r'''model\s+["']?([^"']+)["']?\s+not\s+found''',
+      caseSensitive: false,
+    ).firstMatch(errorMessage);
+    return match?.group(1);
+  }
+
+  String _messagesToOllamaPrompt(List<ChatMessage> messages) {
+    final buffer = StringBuffer();
+    for (final message in messages) {
+      final role = switch (message.role) {
+        'system' => 'System',
+        'assistant' => 'Assistant',
+        _ => 'User',
+      };
+      if (buffer.isNotEmpty) {
+        buffer.writeln();
+      }
+      buffer.writeln('$role: ${message.content}');
+    }
+    if (buffer.isNotEmpty) {
+      buffer.writeln();
+    }
+    buffer.write('Assistant:');
+    return buffer.toString();
   }
 
   /// Test connectivity to a provider by making a lightweight API call.
@@ -380,6 +723,8 @@ class LlmApiService {
             '$baseUrl/models',
             options: Options(
               headers: headers,
+              connectTimeout: const Duration(seconds: 10),
+              sendTimeout: const Duration(seconds: 10),
               receiveTimeout: const Duration(seconds: 10),
             ),
           );
@@ -393,7 +738,7 @@ class LlmApiService {
               'model': 'claude-haiku-4-5-20251001',
               'max_tokens': 1,
               'messages': [
-                {'role': 'user', 'content': 'hi'}
+                {'role': 'user', 'content': 'hi'},
               ],
             },
             options: Options(
@@ -401,6 +746,8 @@ class LlmApiService {
                 'x-api-key': apiKey ?? '',
                 'anthropic-version': '2023-06-01',
               },
+              connectTimeout: const Duration(seconds: 10),
+              sendTimeout: const Duration(seconds: 10),
               receiveTimeout: const Duration(seconds: 10),
             ),
           );
@@ -410,20 +757,31 @@ class LlmApiService {
             '$baseUrl/models',
             options: Options(
               headers: {'x-goog-api-key': apiKey ?? ''},
+              connectTimeout: const Duration(seconds: 10),
+              sendTimeout: const Duration(seconds: 10),
               receiveTimeout: const Duration(seconds: 10),
             ),
           );
           return true;
         case 'ollama':
+          final normalizedBaseUrl = _normalizeOllamaBaseUrl(baseUrl);
           await _dio.get(
-            '$baseUrl/api/tags',
-            options: Options(receiveTimeout: const Duration(seconds: 5)),
+            '$normalizedBaseUrl/api/tags',
+            options: Options(
+              connectTimeout: const Duration(seconds: 5),
+              sendTimeout: const Duration(seconds: 5),
+              receiveTimeout: const Duration(seconds: 5),
+            ),
           );
           return true;
         case 'lmstudio':
           await _dio.get(
             '$baseUrl/models',
-            options: Options(receiveTimeout: const Duration(seconds: 5)),
+            options: Options(
+              connectTimeout: const Duration(seconds: 5),
+              sendTimeout: const Duration(seconds: 5),
+              receiveTimeout: const Duration(seconds: 5),
+            ),
           );
           return true;
         default:

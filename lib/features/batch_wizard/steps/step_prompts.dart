@@ -11,8 +11,9 @@ class StepPrompts extends StatelessWidget {
     required this.availablePrompts,
     required this.selectedPrompts,
     required this.onAddPrompt,
-    required this.onRemovePrompt,
+    required this.onRemovePromptAt,
     required this.onReorderSelected,
+    this.onImportPrompts,
     required this.previewPromptName,
     required this.previewPromptContent,
     required this.onPreviewChanged,
@@ -22,8 +23,9 @@ class StepPrompts extends StatelessWidget {
   final List<String> availablePrompts;
   final List<String> selectedPrompts;
   final ValueChanged<String> onAddPrompt;
-  final ValueChanged<String> onRemovePrompt;
+  final ValueChanged<int> onRemovePromptAt;
   final void Function(int oldIndex, int newIndex) onReorderSelected;
+  final VoidCallback? onImportPrompts;
   final String? previewPromptName;
   final String previewPromptContent;
   final ValueChanged<String?> onPreviewChanged;
@@ -50,8 +52,9 @@ class StepPrompts extends StatelessWidget {
           availablePrompts: availablePrompts,
           selectedPrompts: selectedPrompts,
           onAddPrompt: onAddPrompt,
-          onRemovePrompt: onRemovePrompt,
+          onRemovePromptAt: onRemovePromptAt,
           onReorderSelected: onReorderSelected,
+          onImport: onImportPrompts,
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
@@ -60,9 +63,10 @@ class StepPrompts extends StatelessWidget {
             labelText: t.promptPreview,
             border: const OutlineInputBorder(),
           ),
-          items: {...selectedPrompts, ...availablePrompts}
-              .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-              .toList(),
+          items: {
+            ...selectedPrompts,
+            ...availablePrompts,
+          }.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
           onChanged: onPreviewChanged,
         ),
         const SizedBox(height: 8),

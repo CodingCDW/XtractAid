@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
+
 class ProgressBarWidget extends StatelessWidget {
   const ProgressBarWidget({
     super.key,
@@ -14,13 +16,14 @@ class ProgressBarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = S.of(context)!;
     final clamped = progressPercent.clamp(0.0, 100.0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         LinearProgressIndicator(value: clamped / 100),
         const SizedBox(height: 6),
-        Text('${clamped.toStringAsFixed(1)}%  |  $completedCalls/$totalCalls Calls'),
+        Text(t.execProgressCalls(clamped.toStringAsFixed(1), completedCalls, totalCalls)),
       ],
     );
   }

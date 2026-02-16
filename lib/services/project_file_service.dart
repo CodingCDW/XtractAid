@@ -54,6 +54,16 @@ class ProjectFileService {
     }
   }
 
+  /// Delete a project folder recursively from disk.
+  Future<void> deleteProjectFolder(String path) async {
+    final dir = Directory(path);
+    if (!await dir.exists()) {
+      return;
+    }
+    await dir.delete(recursive: true);
+    _log.info('Deleted project folder at $path');
+  }
+
   /// Get the prompts directory path for a project.
   String promptsDir(String projectPath) => '$projectPath/prompts';
 

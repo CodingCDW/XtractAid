@@ -5,8 +5,7 @@ import '../tables/batches_table.dart';
 part 'batches_dao.g.dart';
 
 @DriftAccessor(tables: [Batches])
-class BatchesDao extends DatabaseAccessor<AppDatabase>
-    with _$BatchesDaoMixin {
+class BatchesDao extends DatabaseAccessor<AppDatabase> with _$BatchesDaoMixin {
   BatchesDao(super.db);
 
   Future<List<Batche>> getAll() => select(batches).get();
@@ -26,8 +25,7 @@ class BatchesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<Batche?> getById(String id) async {
-    return (select(batches)..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    return (select(batches)..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
   Future<void> insertBatch(BatchesCompanion entry) async {
@@ -40,14 +38,24 @@ class BatchesDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> updateStatus(String id, String status) async {
     await (update(batches)..where((t) => t.id.equals(id))).write(
-      BatchesCompanion(
-        status: Value(status),
-        updatedAt: Value(DateTime.now()),
-      ),
+      BatchesCompanion(status: Value(status), updatedAt: Value(DateTime.now())),
     );
   }
 
   Future<void> deleteBatch(String id) async {
     await (delete(batches)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// On app startup, there cannot be any still-running worker isolate from a
+  /// previous session. Mark persisted "running" batches as failed/interrupted.
+  Future<int> recoverStaleRunningBatches() async {
+    final now = DateTime.now();
+    return (update(batches)..where((t) => t.status.equals('running'))).write(
+      BatchesCompanion(
+        status: const Value('failed'),
+        updatedAt: Value(now),
+        completedAt: Value(now),
+      ),
+    );
   }
 }

@@ -48,6 +48,9 @@ class SEn extends S {
   String get actionChange => 'Change';
 
   @override
+  String get actionContinue => 'Continue';
+
+  @override
   String get actionDone => 'Done';
 
   @override
@@ -124,6 +127,9 @@ class SEn extends S {
 
   @override
   String get labelStatus => 'Status:';
+
+  @override
+  String get labelUnknown => 'Unknown';
 
   @override
   String get labelLocal => 'local';
@@ -311,6 +317,32 @@ class SEn extends S {
   String get projectsNever => 'Never';
 
   @override
+  String projectsDeleteConfirm(String name, String path) {
+    return 'Delete project \"$name\"?\n\nPath: $path\n\nYou can remove only the list entry, or delete the full project including folder and all batch data.';
+  }
+
+  @override
+  String get projectsDeleteListOnly => 'Remove from list only';
+
+  @override
+  String get projectsDeleteProject => 'Delete project';
+
+  @override
+  String projectsDeleteSuccessFull(String name) {
+    return 'Project \"$name\" was deleted completely.';
+  }
+
+  @override
+  String projectsDeleteSuccessList(String name) {
+    return 'Project \"$name\" was removed from the list.';
+  }
+
+  @override
+  String projectsDeleteFailed(String error) {
+    return 'Could not delete project: $error';
+  }
+
+  @override
   String get projectCreateTitle => 'Create New Project';
 
   @override
@@ -344,6 +376,12 @@ class SEn extends S {
   String get projectDetailNoBatches => 'No batches yet.';
 
   @override
+  String get projectDetailNoPromptFiles => 'No prompt files found.';
+
+  @override
+  String get projectDetailNoInputFiles => 'No input files found.';
+
+  @override
   String get batchWizardItemsTitle => 'Load Items';
 
   @override
@@ -360,6 +398,11 @@ class SEn extends S {
 
   @override
   String get batchWizardStartBatch => 'Start Batch';
+
+  @override
+  String batchWizardTitle(String projectName) {
+    return 'Batch Wizard - $projectName';
+  }
 
   @override
   String get batchWizardSelectSource => 'Please select an input source first.';
@@ -390,6 +433,45 @@ class SEn extends S {
   String get batchWizardProjectNotLoaded => 'Project not loaded.';
 
   @override
+  String get batchWizardSaveChangesTitle => 'Save batch changes';
+
+  @override
+  String get batchWizardSaveChangesMessage =>
+      'This batch is already completed or failed. Do you want to update it or save as a new batch?';
+
+  @override
+  String get batchWizardUpdateExisting => 'Update existing';
+
+  @override
+  String get batchWizardSaveAsNew => 'Save as new';
+
+  @override
+  String get batchWizardRunningNotEditable =>
+      'Running batches cannot be edited.';
+
+  @override
+  String batchWizardGeneratedName(String timestamp) {
+    return 'Batch $timestamp';
+  }
+
+  @override
+  String batchWizardInactiveModelWarning(String status) {
+    return 'Selected model status is \"$status\". Consider selecting an active model for new runs.';
+  }
+
+  @override
+  String get batchWizardItemsFallbackWarning =>
+      'Items could not be loaded from input source. Using stored item count.';
+
+  @override
+  String get batchDeleteTitle => 'Delete batch?';
+
+  @override
+  String batchDeleteDesc(String name) {
+    return 'Delete batch \"$name\"? This cannot be undone.';
+  }
+
+  @override
   String get itemsExcelCsv => 'Excel/CSV';
 
   @override
@@ -411,6 +493,9 @@ class SEn extends S {
 
   @override
   String get itemsIdColumn => 'ID Column';
+
+  @override
+  String get itemsIdLabel => 'ID';
 
   @override
   String get itemsItemColumn => 'Item Column';
@@ -467,6 +552,28 @@ class SEn extends S {
   String get promptPreview => 'Prompt Preview';
 
   @override
+  String get promptSelectorAvailable => 'Available';
+
+  @override
+  String get promptSelectorSelected => 'Selected';
+
+  @override
+  String get promptImport => 'Import';
+
+  @override
+  String get promptImportTooltip => 'Import prompt files from disk';
+
+  @override
+  String promptImportSuccess(int count) {
+    return '$count prompt(s) imported.';
+  }
+
+  @override
+  String promptImportSkipped(String names) {
+    return 'Skipped (already exists): $names';
+  }
+
+  @override
   String get modelContext => 'Context:';
 
   @override
@@ -474,6 +581,27 @@ class SEn extends S {
 
   @override
   String get execTitle => 'Execution';
+
+  @override
+  String get execBatchTitle => 'Batch Execution';
+
+  @override
+  String execBatchNameTitle(String name) {
+    return 'Batch: $name';
+  }
+
+  @override
+  String get execBatchId => 'Batch ID:';
+
+  @override
+  String get execCurrentPromptName => 'Current Prompt Name:';
+
+  @override
+  String get execCurrentModel => 'Current Model:';
+
+  @override
+  String get execPreparingInput =>
+      'Configuration loaded. Preparing input data...';
 
   @override
   String get execRepetition => 'Repetition:';
@@ -539,6 +667,29 @@ class SEn extends S {
   }
 
   @override
+  String get execStatusIdle => 'IDLE';
+
+  @override
+  String get execStatusStarting => 'STARTING';
+
+  @override
+  String get execStatusRunning => 'RUNNING';
+
+  @override
+  String get execStatusPaused => 'PAUSED';
+
+  @override
+  String get execStatusCompleted => 'COMPLETED';
+
+  @override
+  String get execStatusFailed => 'FAILED';
+
+  @override
+  String execProgressCalls(String percent, int completed, int total) {
+    return '$percent%  |  $completed/$total Calls';
+  }
+
+  @override
   String get modelsTitle => 'Models';
 
   @override
@@ -573,6 +724,19 @@ class SEn extends S {
   String get modelsNoDiscovery => 'No discovery data yet.';
 
   @override
+  String get modelsShowInactive => 'Show inactive/deprecated models';
+
+  @override
+  String modelsRegistryTileSubtitle(
+    String id,
+    int contextWindow,
+    double inputPrice,
+    double outputPrice,
+  ) {
+    return 'ID: $id | Context: $contextWindow | USD/M in/out: $inputPrice/$outputPrice';
+  }
+
+  @override
   String get modelsIdLabel => 'ID:';
 
   @override
@@ -594,16 +758,163 @@ class SEn extends S {
   String get modelsCapabilities => 'Capabilities';
 
   @override
+  String get modelsCapabilityChat => 'chat';
+
+  @override
+  String get modelsCapabilityVision => 'vision';
+
+  @override
+  String get modelsCapabilityFn => 'fn';
+
+  @override
+  String get modelsCapabilityJson => 'json';
+
+  @override
+  String get modelsCapabilityReason => 'reason';
+
+  @override
+  String modelsPricingLabel(double inputPrice, double outputPrice) {
+    return 'Pricing (USD/M in,out): $inputPrice, $outputPrice';
+  }
+
+  @override
+  String modelsCapabilitySummary(
+    String chat,
+    String vision,
+    String functionCalling,
+    String jsonMode,
+    String streaming,
+    String reasoning,
+    String extendedThinking,
+  ) {
+    return 'chat=$chat, vision=$vision, functionCalling=$functionCalling, jsonMode=$jsonMode, streaming=$streaming, reasoning=$reasoning, extendedThinking=$extendedThinking';
+  }
+
+  @override
+  String modelsParameterDetails(
+    String name,
+    String supported,
+    String type,
+    String min,
+    String max,
+    String defaultValue,
+    String values,
+  ) {
+    return '$name: supported=$supported, type=$type, min=$min, max=$max, default=$defaultValue, values=$values';
+  }
+
+  @override
   String get modelsParameters => 'Parameters';
 
   @override
+  String modelsHideRegistryModelConfirm(String modelId) {
+    return 'Hide model \"$modelId\" from registry models? You can restore it later in Custom Models by deleting the override.';
+  }
+
+  @override
+  String modelsHideRegistryModelDone(String modelId) {
+    return 'Model \"$modelId\" was hidden.';
+  }
+
+  @override
+  String get modelsContextWindowField => 'context_window';
+
+  @override
+  String get modelsMaxOutputTokensField => 'max_output_tokens';
+
+  @override
+  String get modelsNoParameterDefinitions => 'No parameter definitions found.';
+
+  @override
+  String get modelsRawJson => 'JSON';
+
+  @override
+  String get modelsContextWindowPositive =>
+      'context_window must be a positive integer.';
+
+  @override
+  String get modelsMaxOutputTokensPositive =>
+      'max_output_tokens must be a positive integer.';
+
+  @override
+  String modelsParameterMeta(String type, String min, String max) {
+    return 'type=$type   min=$min   max=$max';
+  }
+
+  @override
+  String get modelsDefaultLabel => 'default';
+
+  @override
+  String get modelsApiNameOptional => 'api_name (optional)';
+
+  @override
+  String modelsInvalidIntegerDefault(String key) {
+    return 'Invalid integer default for parameter \"$key\".';
+  }
+
+  @override
+  String modelsInvalidFloatDefault(String key) {
+    return 'Invalid float default for parameter \"$key\".';
+  }
+
+  @override
   String get modelsEditOverride => 'Edit override:';
+
+  @override
+  String get modelsOverrideJsonLabel => 'overrideJson';
+
+  @override
+  String get modelsJsonMustBeObject => 'JSON must be an object.';
+
+  @override
+  String modelsInvalidJson(String error) {
+    return 'Invalid JSON: $error';
+  }
+
+  @override
+  String get modelsCreateCustomTitle => 'Create Custom Model';
+
+  @override
+  String get modelsCreateCustomModelId => 'modelId';
+
+  @override
+  String get modelsCreateCustomProvider => 'provider';
+
+  @override
+  String get modelsModelIdRequired => 'modelId is required.';
+
+  @override
+  String get modelsModelNotFound => 'Model not found.';
+
+  @override
+  String modelsDiscoveryNotReachable(String baseUrl) {
+    return 'Not reachable at $baseUrl';
+  }
+
+  @override
+  String modelsDiscoveryNoModels(String baseUrl) {
+    return 'No models found at $baseUrl';
+  }
+
+  @override
+  String modelsDiscoveryFailedAt(String baseUrl, String error) {
+    return 'Discovery failed at $baseUrl: $error';
+  }
+
+  @override
+  String get modelsCustomModelDescription =>
+      'Custom model added from Model Manager';
 
   @override
   String get modelsOverrideSaved => 'Override saved.';
 
   @override
   String get modelsOverrideDeleted => 'Override deleted.';
+
+  @override
+  String modelsDiscoveryFailed(String error) {
+    return 'Discovery failed: $error';
+  }
 
   @override
   String get settingsTitle => 'Settings';
@@ -670,7 +981,87 @@ class SEn extends S {
   String get settingsWrongPassword => 'Current password is incorrect';
 
   @override
+  String get settingsDecryptKeysFailed =>
+      'Failed to decrypt existing keys. Password not changed.';
+
+  @override
+  String get settingsReEncryptionFailed =>
+      'Re-encryption failed. Password not changed.';
+
+  @override
   String get settingsProviderTitle => 'API Providers';
+
+  @override
+  String get settingsProviderAdd => 'Add provider';
+
+  @override
+  String get settingsProviderAddTitle => 'Add API provider';
+
+  @override
+  String settingsProviderEditTitle(String name) {
+    return 'Edit provider: $name';
+  }
+
+  @override
+  String get settingsProviderName => 'Name';
+
+  @override
+  String get settingsProviderType => 'Type';
+
+  @override
+  String get settingsProviderBaseUrl => 'Base URL';
+
+  @override
+  String get settingsProviderApiKey => 'API Key';
+
+  @override
+  String get settingsProviderApiKeyLocalOptional =>
+      'Optional for local providers.';
+
+  @override
+  String get settingsProviderApiKeyKeepHint =>
+      'Leave empty to keep stored key.';
+
+  @override
+  String get settingsProviderApiKeyRequiredHint =>
+      'Required for cloud providers.';
+
+  @override
+  String get settingsProviderClearApiKey => 'Delete stored API key';
+
+  @override
+  String get settingsProviderEnabled => 'Enabled';
+
+  @override
+  String get settingsProviderKeyStored => 'API key stored';
+
+  @override
+  String get settingsProviderKeyMissing => 'No API key';
+
+  @override
+  String get settingsProviderNameRequired => 'Please enter a provider name.';
+
+  @override
+  String get settingsProviderBaseUrlRequired => 'Please enter a base URL.';
+
+  @override
+  String get settingsProviderApiKeyRequired =>
+      'Please enter an API key for this provider type.';
+
+  @override
+  String get settingsProviderEncryptionLocked =>
+      'Cannot save API key while app is locked.';
+
+  @override
+  String get settingsProviderAdded => 'Provider added.';
+
+  @override
+  String get settingsProviderUpdated => 'Provider updated.';
+
+  @override
+  String settingsProviderSaveError(String error) {
+    return 'Could not save provider: $error';
+  }
 
   @override
   String get settingsNoProviders => 'No providers configured';
@@ -748,6 +1139,15 @@ class SEn extends S {
 
   @override
   String get logLevelLabel => 'Level:';
+
+  @override
+  String get logLevelInfo => 'INFO';
+
+  @override
+  String get logLevelWarn => 'WARN';
+
+  @override
+  String get logLevelError => 'ERROR';
 
   @override
   String get noSourceSelected => 'No source selected';

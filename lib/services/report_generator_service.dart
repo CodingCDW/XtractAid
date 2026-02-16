@@ -29,26 +29,32 @@ class ReportGeneratorService {
     required List<Map<String, dynamic>> results,
     required List<LogEntry> logs,
     required Map<String, String> promptContents,
+    double inputPricePerMillion = 0.0,
+    double outputPricePerMillion = 0.0,
   }) async {
     final outputDir = Directory(_outputDir(projectPath, batchId));
     if (!outputDir.existsSync()) {
       outputDir.createSync(recursive: true);
     }
 
+    final mergedResults = _mergeResultsByItemId(results);
+
     try {
-      final excelPath = await _generateExcel(outputDir.path, results);
+      final excelPath = await _generateExcel(outputDir.path, mergedResults);
       final markdownPath = await _generateMarkdown(
         outputDir.path,
         config: config,
         stats: stats,
         logs: logs,
         promptContents: promptContents,
+        inputPricePerMillion: inputPricePerMillion,
+        outputPricePerMillion: outputPricePerMillion,
       );
       final htmlPath = await _generateHtml(
         outputDir.path,
         config: config,
         stats: stats,
-        results: results,
+        results: mergedResults,
         logs: logs,
       );
 
@@ -106,6 +112,8 @@ class ReportGeneratorService {
     required BatchStats stats,
     required List<LogEntry> logs,
     required Map<String, String> promptContents,
+    double inputPricePerMillion = 0.0,
+    double outputPricePerMillion = 0.0,
   }) async {
     final errors = logs.where((e) => e.level == LogLevel.error).toList();
     final warnings = logs.where((e) => e.level == LogLevel.warn).toList();
@@ -142,7 +150,30 @@ class ReportGeneratorService {
       )
       ..writeln()
       ..writeln('## Cost')
-      ..writeln('- Total cost (USD): ${stats.totalCost.toStringAsFixed(6)}')
+      ..writeln('- Total cost (USD): ${stats.totalCost.toStringAsFixed(6)}');
+    if (inputPricePerMillion > 0 || outputPricePerMillion > 0) {
+      final inputCost =
+          stats.totalInputTokens * inputPricePerMillion / 1000000.0;
+      final outputCost =
+          stats.totalOutputTokens * outputPricePerMillion / 1000000.0;
+      buffer
+        ..writeln(
+          '- Model: ${config.models.map((m) => '${m.providerId}:${m.modelId}').join(', ')}',
+        )
+        ..writeln(
+          '- Input pricing: \$${inputPricePerMillion.toStringAsFixed(2)} / 1M tokens',
+        )
+        ..writeln(
+          '- Output pricing: \$${outputPricePerMillion.toStringAsFixed(2)} / 1M tokens',
+        )
+        ..writeln(
+          '- Input cost: ${stats.totalInputTokens} tokens × \$${inputPricePerMillion.toStringAsFixed(2)}/1M = \$${inputCost.toStringAsFixed(6)}',
+        )
+        ..writeln(
+          '- Output cost: ${stats.totalOutputTokens} tokens × \$${outputPricePerMillion.toStringAsFixed(2)}/1M = \$${outputCost.toStringAsFixed(6)}',
+        );
+    }
+    buffer
       ..writeln()
       ..writeln('## Errors')
       ..writeln('- Count: ${errors.length}')
@@ -194,18 +225,15 @@ class ReportGeneratorService {
         : (successCalls / stats.completedApiCalls) * 100;
 
     final itemsHtml = results
-        .asMap()
-        .entries
-        .map((entry) {
-          final i = entry.key + 1;
-          final map = entry.value;
+        .map((map) {
+          final itemId = map['ID']?.toString() ?? 'Item';
           final fields = map.entries
               .map(
                 (e) =>
-                    '<dt>${_escapeHtml(e.key)}</dt><dd>${_escapeHtml(_stringify(e.value))}</dd>',
+                    '<dt>${_escapeHtml(e.key)}</dt><dd>${_formatHtmlValue(e.value)}</dd>',
               )
               .join();
-          return '<section class="item"><h3>Item $i</h3><dl>$fields</dl></section>';
+          return '<section class="item"><h3>${_escapeHtml(itemId)}</h3><dl>$fields</dl></section>';
         })
         .join('\n');
 
@@ -226,13 +254,16 @@ class ReportGeneratorService {
     .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
     .card { background: #fff; border: 1px solid #dbe2ea; border-radius: 10px; padding: 10px 12px; }
     .item { background: #fff; border: 1px solid #dbe2ea; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
-    dl { display: grid; grid-template-columns: minmax(120px, 220px) 1fr; gap: 6px 10px; margin: 0; }
-    dt { font-weight: 600; color: #374151; }
+    dl { display: grid; grid-template-columns: minmax(180px, 360px) 1fr; gap: 6px 16px; margin: 0; }
+    dt { font-weight: 600; color: #374151; word-break: break-word; overflow-wrap: break-word; font-size: 0.85em; }
     dd { margin: 0; white-space: pre-wrap; }
+    dd ul { list-style: disc; margin: 4px 0; padding-left: 20px; }
+    dd li { padding: 2px 0; border-radius: 0; cursor: default; }
+    dd li:hover { background: none; }
     input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px; }
-    ul { list-style: none; margin: 0; padding: 0; }
-    li { padding: 6px 8px; border-radius: 6px; cursor: pointer; }
-    li:hover { background: #eef2ff; }
+    aside ul { list-style: none; margin: 0; padding: 0; }
+    aside li { padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+    aside li:hover { background: #eef2ff; }
   </style>
 </head>
 <body>
@@ -286,16 +317,101 @@ class ReportGeneratorService {
   }
 
   List<String> _collectHeaders(List<Map<String, dynamic>> results) {
-    final keys = <String>{'ID'};
+    // Collect all unique keys preserving first-seen order
+    final allKeys = <String>[];
+    final seen = <String>{};
     for (final row in results) {
-      keys.addAll(row.keys);
+      for (final key in row.keys) {
+        if (seen.add(key)) {
+          allKeys.add(key);
+        }
+      }
     }
-    final headers = keys.toList();
-    headers.sort();
-    if (headers.remove('ID')) {
-      headers.insert(0, 'ID');
+    allKeys.remove('ID');
+
+    // Group by suffix _from_<prompt>_rep_<n>
+    final grouped = <String, List<String>>{};
+    final ungrouped = <String>[];
+
+    for (final key in allKeys) {
+      final fromIdx = key.indexOf('_from_');
+      if (fromIdx > 0) {
+        final suffix = key.substring(fromIdx);
+        grouped.putIfAbsent(suffix, () => []).add(key);
+      } else {
+        ungrouped.add(key);
+      }
     }
+
+    // Sort group keys so prompt+rep combos are in consistent order
+    final sortedGroupKeys = grouped.keys.toList()..sort();
+
+    final headers = <String>['ID'];
+    for (final groupKey in sortedGroupKeys) {
+      headers.addAll(grouped[groupKey]!);
+    }
+    headers.addAll(ungrouped);
     return headers;
+  }
+
+  List<Map<String, dynamic>> _mergeResultsByItemId(
+    List<Map<String, dynamic>> results,
+  ) {
+    final merged = <String, Map<String, dynamic>>{};
+    final idOrder = <String>[];
+
+    for (final row in results) {
+      // Find the item ID from any ID_from_* key
+      String? itemId;
+      for (final key in row.keys) {
+        if (key.startsWith('ID_from_') || key == 'ID') {
+          final val = row[key];
+          if (val != null) {
+            itemId = val.toString();
+            break;
+          }
+        }
+      }
+      itemId ??= 'unknown_${merged.length}';
+
+      if (!merged.containsKey(itemId)) {
+        idOrder.add(itemId);
+        merged[itemId] = {'ID': itemId};
+      }
+      merged[itemId]!.addAll(row);
+    }
+
+    // Remove redundant ID_from_* keys, keep central ID
+    for (final row in merged.values) {
+      row.removeWhere((key, _) => key.startsWith('ID_from_'));
+    }
+
+    return idOrder.map((id) => merged[id]!).toList();
+  }
+
+  String _formatHtmlValue(dynamic value) {
+    if (value == null) return '';
+    if (value is List) {
+      if (value.isEmpty) return '';
+      final items =
+          value.map((v) => '<li>${_escapeHtml(v.toString())}</li>').join();
+      return '<ul>$items</ul>';
+    }
+    final str = _stringify(value);
+    // Try parsing JSON arrays stored as strings
+    if (str.startsWith('[')) {
+      try {
+        final list = jsonDecode(str);
+        if (list is List) {
+          final items =
+              list.map((v) => '<li>${_escapeHtml(v.toString())}</li>').join();
+          return '<ul>$items</ul>';
+        }
+      } catch (_) {
+        // Not valid JSON, fall through
+      }
+    }
+    return _escapeHtml(str);
   }
 
   String _stringify(dynamic value) {

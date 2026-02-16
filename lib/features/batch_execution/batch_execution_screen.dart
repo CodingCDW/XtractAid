@@ -11,6 +11,7 @@ import '../../data/models/item.dart';
 import '../../providers/batch_execution_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/encryption_provider.dart';
+import '../../providers/model_registry_provider.dart';
 import '../../services/file_parser_service.dart';
 import '../../services/prompt_service.dart';
 import '../../services/project_file_service.dart';
@@ -30,7 +31,8 @@ class BatchExecutionScreen extends ConsumerStatefulWidget {
   final String batchId;
 
   @override
-  ConsumerState<BatchExecutionScreen> createState() => _BatchExecutionScreenState();
+  ConsumerState<BatchExecutionScreen> createState() =>
+      _BatchExecutionScreenState();
 }
 
 class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
@@ -46,6 +48,8 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
   BatchConfig? _activeConfig;
   String? _activeProjectPath;
   Map<String, String> _activePromptContents = const {};
+  double _activeInputPrice = 0.0;
+  double _activeOutputPrice = 0.0;
   bool _reportsGenerated = false;
 
   @override
@@ -58,17 +62,21 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
     });
 
     final execState = ref.watch(batchExecutionProvider);
-    final statusLabel = _statusLabel(execState.status);
+    final statusLabel = _statusLabel(execState.status, t);
     final statusColor = _statusColor(execState.status, context);
     final progress = execState.progress;
     final stats = execState.stats;
-    final totalCalls = progress?.totalChunks != null &&
+    final totalCalls =
+        progress?.totalChunks != null &&
             (progress?.totalPrompts ?? 0) > 0 &&
             (progress?.totalRepetitions ?? 0) > 0
-        ? (progress!.totalChunks * progress.totalPrompts * progress.totalRepetitions)
+        ? (progress!.totalChunks *
+              progress.totalPrompts *
+              progress.totalRepetitions)
         : (stats?.totalApiCalls ?? 0);
 
-    final canStart = !_isPreparing &&
+    final canStart =
+        !_isPreparing &&
         execState.status != BatchExecutionStatus.running &&
         execState.status != BatchExecutionStatus.starting;
 
@@ -81,134 +89,170 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
       child: Focus(
         autofocus: true,
         child: Scaffold(
-      appBar: AppBar(
-        title: Text(_batchName == null ? 'Batch Execution' : 'Batch: $_batchName'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+          appBar: AppBar(
+            title: Text(
+              _batchName == null
+                  ? t.execBatchTitle
+                  : t.execBatchNameTitle(_batchName!),
+            ),
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      Text(t.labelStatus),
-                      Chip(
-                        label: Text(statusLabel),
-                        backgroundColor: statusColor,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          Text(t.labelStatus),
+                          Chip(
+                            label: Text(statusLabel),
+                            backgroundColor: statusColor,
+                          ),
+                          Text('${t.execBatchId} ${widget.batchId}'),
+                        ],
                       ),
-                      Text('Batch ID: ${widget.batchId}'),
-                    ],
+                    ),
+                    FilledButton.icon(
+                      onPressed: canStart ? _startExecution : null,
+                      icon: const Icon(Icons.play_arrow),
+                      label: Text(t.actionStart),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed:
+                          execState.status == BatchExecutionStatus.running
+                          ? () => ref
+                                .read(batchExecutionProvider.notifier)
+                                .pause()
+                          : null,
+                      icon: const Icon(Icons.pause),
+                      label: Text(t.actionPause),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: execState.status == BatchExecutionStatus.paused
+                          ? () => ref
+                                .read(batchExecutionProvider.notifier)
+                                .resume()
+                          : null,
+                      icon: const Icon(Icons.play_circle),
+                      label: Text(t.actionResume),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed:
+                          (execState.status == BatchExecutionStatus.running ||
+                              execState.status == BatchExecutionStatus.paused ||
+                              execState.status == BatchExecutionStatus.starting)
+                          ? () =>
+                                ref.read(batchExecutionProvider.notifier).stop()
+                          : null,
+                      icon: const Icon(Icons.stop),
+                      label: Text(t.actionStop),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (_isPreparing)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: LinearProgressIndicator(),
                   ),
+                ProgressBarWidget(
+                  progressPercent: progress?.progressPercent ?? 0,
+                  completedCalls:
+                      progress?.callCounter ?? stats?.completedApiCalls ?? 0,
+                  totalCalls: totalCalls,
                 ),
-                FilledButton.icon(
-                  onPressed: canStart ? _startExecution : null,
-                  icon: const Icon(Icons.play_arrow),
-                  label: Text(t.actionStart),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: execState.status == BatchExecutionStatus.running
-                      ? () => ref.read(batchExecutionProvider.notifier).pause()
-                      : null,
-                  icon: const Icon(Icons.pause),
-                  label: Text(t.actionPause),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: execState.status == BatchExecutionStatus.paused
-                      ? () => ref.read(batchExecutionProvider.notifier).resume()
-                      : null,
-                  icon: const Icon(Icons.play_circle),
-                  label: Text(t.actionResume),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: (execState.status == BatchExecutionStatus.running ||
-                          execState.status == BatchExecutionStatus.paused ||
-                          execState.status == BatchExecutionStatus.starting)
-                      ? () => ref.read(batchExecutionProvider.notifier).stop()
-                      : null,
-                  icon: const Icon(Icons.stop),
-                  label: Text(t.actionStop),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            if (_isPreparing)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: LinearProgressIndicator(),
-              ),
-            ProgressBarWidget(
-              progressPercent: progress?.progressPercent ?? 0,
-              completedCalls: progress?.callCounter ?? stats?.completedApiCalls ?? 0,
-              totalCalls: totalCalls,
-            ),
-            const SizedBox(height: 10),
-            if (_infoText != null) Text(_infoText!),
-            if (execState.errorMessage != null)
-              Text(
-                execState.errorMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 360,
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                t.execTitle,
-                                style: Theme.of(context).textTheme.titleMedium,
+                const SizedBox(height: 10),
+                if (_infoText != null) Text(_infoText!),
+                if (execState.errorMessage != null)
+                  Text(
+                    execState.errorMessage!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 360,
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    t.execTitle,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '${t.execRepetition} ${progress?.currentRepetition ?? 0}/${progress?.totalRepetitions ?? 0}',
+                                  ),
+                                  Text(
+                                    '${t.execPrompt} ${progress?.currentPromptIndex ?? 0}/${progress?.totalPrompts ?? 0}',
+                                  ),
+                                  Text(
+                                    '${t.execChunk} ${progress?.currentChunkIndex ?? 0}/${progress?.totalChunks ?? 0}',
+                                  ),
+                                  Text(
+                                    '${t.execCurrentPromptName} ${progress?.currentPromptName ?? '-'}',
+                                  ),
+                                  Text(
+                                    '${t.execCurrentModel} ${progress?.currentModelId ?? '-'}',
+                                  ),
+                                  const Divider(height: 20),
+                                  Text(
+                                    '${t.execCompletedCalls} ${stats?.completedApiCalls ?? 0}',
+                                  ),
+                                  Text(
+                                    '${t.execFailedCalls} ${stats?.failedApiCalls ?? 0}',
+                                  ),
+                                  Text(
+                                    '${t.execInputTokens} ${stats?.totalInputTokens ?? 0}',
+                                  ),
+                                  Text(
+                                    '${t.execOutputTokens} ${stats?.totalOutputTokens ?? 0}',
+                                  ),
+                                  Text(
+                                    '${t.execResults} ${execState.results.length}',
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 8),
-                              Text('${t.execRepetition} ${progress?.currentRepetition ?? 0}/${progress?.totalRepetitions ?? 0}'),
-                              Text('${t.execPrompt} ${progress?.currentPromptIndex ?? 0}/${progress?.totalPrompts ?? 0}'),
-                              Text('${t.execChunk} ${progress?.currentChunkIndex ?? 0}/${progress?.totalChunks ?? 0}'),
-                              Text('Current Prompt Name: ${progress?.currentPromptName ?? '-'}'),
-                              Text('Current Model: ${progress?.currentModelId ?? '-'}'),
-                              const Divider(height: 20),
-                              Text('${t.execCompletedCalls} ${stats?.completedApiCalls ?? 0}'),
-                              Text('${t.execFailedCalls} ${stats?.failedApiCalls ?? 0}'),
-                              Text('${t.execInputTokens} ${stats?.totalInputTokens ?? 0}'),
-                              Text('${t.execOutputTokens} ${stats?.totalOutputTokens ?? 0}'),
-                              Text('${t.execResults} ${execState.results.length}'),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: LogViewer(entries: execState.logs),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: LogViewer(entries: execState.logs),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
-    ),
-    ),
     );
   }
 
@@ -234,7 +278,7 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
 
       setState(() {
         _batchName = batch.name;
-        _infoText = 'Konfiguration geladen. Eingabedaten werden vorbereitet...';
+        _infoText = t.execPreparingInput;
       });
 
       final configMap = jsonDecode(batch.configJson);
@@ -287,6 +331,15 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
 
       final apiKey = _resolveApiKey(selectedProvider);
 
+      // Look up model pricing from registry
+      final modelId = config.models.first.modelId;
+      final registry = ref.read(modelRegistryProvider);
+      final pricing = registry.getModelPricing(modelId);
+      final inputPrice = pricing.inputPerMillion;
+      final outputPrice = pricing.outputPerMillion;
+      _activeInputPrice = inputPrice;
+      _activeOutputPrice = outputPrice;
+
       await db.batchesDao.updateStatus(widget.batchId, 'running');
       final notifier = ref.read(batchExecutionProvider.notifier);
       notifier.reset();
@@ -298,6 +351,8 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
           projectPath: project.path,
           apiKey: apiKey,
           providerBaseUrls: providerBaseUrls,
+          inputPricePerMillion: inputPrice,
+          outputPricePerMillion: outputPrice,
         ),
       );
 
@@ -389,14 +444,14 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
     await db.batchesDao.updateStatus(widget.batchId, status);
   }
 
-  String _statusLabel(BatchExecutionStatus status) {
+  String _statusLabel(BatchExecutionStatus status, S t) {
     return switch (status) {
-      BatchExecutionStatus.idle => 'IDLE',
-      BatchExecutionStatus.starting => 'STARTING',
-      BatchExecutionStatus.running => 'RUNNING',
-      BatchExecutionStatus.paused => 'PAUSED',
-      BatchExecutionStatus.completed => 'COMPLETED',
-      BatchExecutionStatus.failed => 'FAILED',
+      BatchExecutionStatus.idle => t.execStatusIdle,
+      BatchExecutionStatus.starting => t.execStatusStarting,
+      BatchExecutionStatus.running => t.execStatusRunning,
+      BatchExecutionStatus.paused => t.execStatusPaused,
+      BatchExecutionStatus.completed => t.execStatusCompleted,
+      BatchExecutionStatus.failed => t.execStatusFailed,
     };
   }
 
@@ -407,7 +462,9 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
       BatchExecutionStatus.running => Colors.green.shade200,
       BatchExecutionStatus.paused => Colors.amber.shade200,
       BatchExecutionStatus.completed => Colors.teal.shade200,
-      BatchExecutionStatus.failed => Theme.of(context).colorScheme.errorContainer,
+      BatchExecutionStatus.failed => Theme.of(
+        context,
+      ).colorScheme.errorContainer,
     };
   }
 
@@ -456,6 +513,8 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
         results: state.results,
         logs: state.logs,
         promptContents: _activePromptContents,
+        inputPricePerMillion: _activeInputPrice,
+        outputPricePerMillion: _activeOutputPrice,
       );
 
       if (!mounted) {
@@ -463,8 +522,9 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
       }
       final t = S.of(context)!;
       setState(() {
-        _infoText =
-            t.execReportsCreated('${reports.excelPath}, ${reports.markdownPath}, ${reports.htmlPath}');
+        _infoText = t.execReportsCreated(
+          '${reports.excelPath}, ${reports.markdownPath}, ${reports.htmlPath}',
+        );
       });
     } catch (e) {
       if (!mounted) {

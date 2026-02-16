@@ -5,15 +5,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../data/database/app_database.dart';
 import '../../providers/database_provider.dart';
 
 class ProjectDetailScreen extends ConsumerWidget {
-  const ProjectDetailScreen({
-    super.key,
-    required this.projectId,
-  });
+  const ProjectDetailScreen({super.key, required this.projectId});
 
   final String projectId;
+
+  Future<Project?> _loadProject(AppDatabase db) async {
+    await db.batchesDao.recoverStaleRunningBatches();
+    return db.projectsDao.getById(projectId);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,7 +24,7 @@ class ProjectDetailScreen extends ConsumerWidget {
     final db = ref.watch(databaseProvider);
 
     return FutureBuilder(
-      future: db.projectsDao.getById(projectId),
+      future: _loadProject(db),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -43,14 +46,18 @@ class ProjectDetailScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(project.name, style: Theme.of(context).textTheme.headlineSmall),
+                        Text(
+                          project.name,
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
                         const SizedBox(height: 4),
                         Text(project.path),
                       ],
                     ),
                   ),
                   FilledButton.icon(
-                    onPressed: () => context.go('/projects/$projectId/batch/new'),
+                    onPressed: () =>
+                        context.go('/projects/$projectId/batch/new'),
                     icon: const Icon(Icons.add),
                     label: Text(t.projectDetailNewBatch),
                   ),
@@ -77,17 +84,92 @@ class ProjectDetailScreen extends ConsumerWidget {
                               builder: (context, batchSnapshot) {
                                 final batches = batchSnapshot.data ?? const [];
                                 if (batches.isEmpty) {
-                                  return Center(child: Text(t.projectDetailNoBatches));
+                                  return Center(
+                                    child: Text(t.projectDetailNoBatches),
+                                  );
                                 }
                                 return ListView.separated(
                                   itemCount: batches.length,
-                                  separatorBuilder: (_, _) => const Divider(height: 1),
+                                  separatorBuilder: (_, _) =>
+                                      const Divider(height: 1),
                                   itemBuilder: (context, index) {
                                     final batch = batches[index];
                                     return ListTile(
                                       title: Text(batch.name),
-                                      subtitle: Text('${t.labelStatus} ${batch.status}'),
-                                      onTap: () => context.go('/projects/$projectId/batch/${batch.id}'),
+                                      subtitle: Text(
+                                        '${t.labelStatus} ${batch.status}',
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            tooltip: t.actionChange,
+                                            icon: const Icon(
+                                              Icons.edit_outlined,
+                                            ),
+                                            onPressed: batch.status == 'running'
+                                                ? null
+                                                : () => context.go(
+                                                    '/projects/$projectId/batch/${batch.id}/edit',
+                                                  ),
+                                          ),
+                                          IconButton(
+                                            tooltip: t.actionDelete,
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                            ),
+                                            onPressed: batch.status == 'running'
+                                                ? null
+                                                : () async {
+                                                    final confirmed =
+                                                        await showDialog<bool>(
+                                                          context: context,
+                                                          builder: (ctx) => AlertDialog(
+                                                            title: Text(
+                                                              t.batchDeleteTitle,
+                                                            ),
+                                                            content: Text(
+                                                              t.batchDeleteDesc(
+                                                                batch.name,
+                                                              ),
+                                                            ),
+                                                            actions: [
+                                                              TextButton(
+                                                                onPressed: () =>
+                                                                    Navigator.of(
+                                                                      ctx,
+                                                                    ).pop(
+                                                                      false,
+                                                                    ),
+                                                                child: Text(
+                                                                  t.actionCancel,
+                                                                ),
+                                                              ),
+                                                              FilledButton(
+                                                                onPressed: () =>
+                                                                    Navigator.of(
+                                                                      ctx,
+                                                                    ).pop(true),
+                                                                child: Text(
+                                                                  t.actionDelete,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                    if (confirmed == true) {
+                                                      await db.batchesDao
+                                                          .deleteBatch(
+                                                            batch.id,
+                                                          );
+                                                    }
+                                                  },
+                                          ),
+                                        ],
+                                      ),
+                                      onTap: () => context.go(
+                                        '/projects/$projectId/batch/${batch.id}',
+                                      ),
                                     );
                                   },
                                 );
@@ -96,12 +178,20 @@ class ProjectDetailScreen extends ConsumerWidget {
                             _DirectoryFilesView(
                               directoryPath: '${project.path}/prompts',
                               extensions: const ['.txt', '.md'],
-                              emptyMessage: 'Keine Prompt-Dateien gefunden.',
+                              emptyMessage: t.projectDetailNoPromptFiles,
                             ),
                             _DirectoryFilesView(
                               directoryPath: '${project.path}/input',
-                              extensions: const ['.xlsx', '.xls', '.csv', '.pdf', '.docx', '.txt', '.md'],
-                              emptyMessage: 'Keine Input-Dateien gefunden.',
+                              extensions: const [
+                                '.xlsx',
+                                '.xls',
+                                '.csv',
+                                '.pdf',
+                                '.docx',
+                                '.txt',
+                                '.md',
+                              ],
+                              emptyMessage: t.projectDetailNoInputFiles,
                             ),
                           ],
                         ),

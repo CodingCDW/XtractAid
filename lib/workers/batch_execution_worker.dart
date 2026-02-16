@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:isolate';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
+
 import '../core/constants/app_constants.dart';
 import '../core/utils/log_masking.dart';
 import '../data/models/batch_stats.dart';
@@ -18,7 +20,9 @@ class BatchExecutionWorker {
 
   Isolate? _isolate;
   ReceivePort? _eventPort;
+  ReceivePort? _errorPort;
   StreamSubscription<dynamic>? _eventSub;
+  StreamSubscription<dynamic>? _errorSub;
   SendPort? _commandPort;
 
   final _eventsController = StreamController<WorkerEvent>.broadcast();
@@ -34,6 +38,7 @@ class BatchExecutionWorker {
     }
 
     final eventPort = ReceivePort();
+    final errorPort = ReceivePort();
     final commandPortCompleter = Completer<SendPort>();
 
     _eventSub = eventPort.listen((message) {
@@ -50,14 +55,20 @@ class BatchExecutionWorker {
       }
     });
 
+    _errorSub = errorPort.listen((message) {
+      _errorsController.add(StateError('Worker isolate error: $message'));
+    });
+
     final isolate = await Isolate.spawn<_WorkerBootstrapMessage>(
       _workerMain,
       _WorkerBootstrapMessage(eventPort.sendPort),
       errorsAreFatal: false,
       debugName: 'batch_execution_worker',
+      onError: errorPort.sendPort,
     );
 
     _eventPort = eventPort;
+    _errorPort = errorPort;
     _isolate = isolate;
 
     try {
@@ -66,7 +77,9 @@ class BatchExecutionWorker {
       );
     } on TimeoutException {
       _errorsController.add(
-        TimeoutException('Worker startup timed out (command port not received)'),
+        TimeoutException(
+          'Worker startup timed out (command port not received)',
+        ),
       );
       await dispose();
       rethrow;
@@ -84,8 +97,12 @@ class BatchExecutionWorker {
   Future<void> dispose() async {
     _eventSub?.cancel();
     _eventSub = null;
+    _errorSub?.cancel();
+    _errorSub = null;
     _eventPort?.close();
     _eventPort = null;
+    _errorPort?.close();
+    _errorPort = null;
     _commandPort = null;
     _isolate?.kill(priority: Isolate.immediate);
     _isolate = null;
@@ -124,10 +141,7 @@ class _WorkerRuntime {
     switch (command) {
       case StartBatchCommand():
         if (_activeRun != null) {
-          _emitLog(
-            'Batch execution is already running.',
-            level: LogLevel.warn,
-          );
+          _emitLog('Batch execution is already running.', level: LogLevel.warn);
           return;
         }
         _stopRequested = false;
@@ -156,6 +170,11 @@ class _WorkerRuntime {
   Future<void> _runBatch(StartBatchCommand command) async {
     try {
       final config = command.config;
+      _emitLog(
+        'Worker received StartBatchCommand: '
+        'items=${command.items.length}, prompts=${config.promptFiles.length}, '
+        'chunkSize=${config.chunkSettings.chunkSize}, repetitions=${config.chunkSettings.repetitions}',
+      );
       if (command.items.isEmpty) {
         _emitError('No items to process.');
         return;
@@ -172,11 +191,15 @@ class _WorkerRuntime {
       final model = config.models.first;
       final providerType = model.providerId;
       final baseUrl =
-          command.providerBaseUrls[providerType] ?? _defaultBaseUrl(providerType);
+          command.providerBaseUrls[providerType] ??
+          _defaultBaseUrl(providerType);
 
-      final totalChunks = (command.items.length / config.chunkSettings.chunkSize).ceil();
+      final totalChunks =
+          (command.items.length / config.chunkSettings.chunkSize).ceil();
       final totalApiCalls =
-          totalChunks * config.promptFiles.length * config.chunkSettings.repetitions;
+          totalChunks *
+          config.promptFiles.length *
+          config.chunkSettings.repetitions;
 
       final batchStartTime = DateTime.now();
       var stats = BatchStats(
@@ -194,9 +217,11 @@ class _WorkerRuntime {
           repItems.shuffle(_random);
         }
 
-        for (var promptIndex = 0;
-            promptIndex < config.promptFiles.length;
-            promptIndex++) {
+        for (
+          var promptIndex = 0;
+          promptIndex < config.promptFiles.length;
+          promptIndex++
+        ) {
           final promptName = config.promptFiles[promptIndex];
           final promptTemplate = command.prompts[promptName];
           if (promptTemplate == null) {
@@ -258,8 +283,16 @@ class _WorkerRuntime {
             final request = _promptService.injectItems(promptTemplate, chunk);
 
             LlmResponse? response;
-            for (var attempt = 0; attempt <= AppConstants.maxRetries; attempt++) {
+            for (
+              var attempt = 0;
+              attempt <= AppConstants.maxRetries;
+              attempt++
+            ) {
               try {
+                _emitLog(
+                  'Calling $providerType model=${model.modelId} '
+                  '(rep=$rep, prompt=$promptName, chunk=${chunkIndex + 1}/${chunks.length}, attempt=${attempt + 1})',
+                );
                 response = await _llmApiService.callLlm(
                   providerType: providerType,
                   baseUrl: baseUrl,
@@ -276,7 +309,23 @@ class _WorkerRuntime {
                 );
                 break;
               } catch (e) {
-                if (attempt < AppConstants.maxRetries) {
+                final statusCode = e is DioException
+                    ? e.response?.statusCode
+                    : null;
+                final nonRetryableClientError =
+                    statusCode != null &&
+                    statusCode >= 400 &&
+                    statusCode < 500 &&
+                    statusCode != 429;
+                final nonRetryableModelError =
+                    e.toString().toLowerCase().contains('model') &&
+                    e.toString().toLowerCase().contains('not found');
+                final shouldStopRetrying =
+                    nonRetryableClientError ||
+                    nonRetryableModelError ||
+                    attempt >= AppConstants.maxRetries;
+
+                if (!shouldStopRetrying) {
                   final waitSeconds = pow(2, attempt).toInt();
                   _emitLog(
                     'LLM call failed (attempt ${attempt + 1}/${AppConstants.maxRetries + 1}), '
@@ -285,13 +334,20 @@ class _WorkerRuntime {
                   );
                   await Future.delayed(Duration(seconds: waitSeconds));
                 } else {
-                  stats = stats.copyWith(failedApiCalls: stats.failedApiCalls + 1);
+                  stats = stats.copyWith(
+                    failedApiCalls: stats.failedApiCalls + 1,
+                  );
+                  final retryNote =
+                      nonRetryableClientError || nonRetryableModelError
+                      ? ' (non-retryable)'
+                      : '';
                   _emitLog(
-                    'LLM call failed after ${AppConstants.maxRetries + 1} attempts at '
+                    'LLM call failed$retryNote after ${attempt + 1} attempt(s) at '
                     'rep=$rep, prompt=$promptName, chunk=${chunkIndex + 1}. Skipping.',
                     level: LogLevel.error,
                     details: e.toString(),
                   );
+                  break;
                 }
               }
             }
@@ -301,18 +357,23 @@ class _WorkerRuntime {
               final progressPercent = totalApiCalls == 0
                   ? 100.0
                   : (callCounter / totalApiCalls) * 100.0;
-              _emitEvent(ProgressEvent(BatchProgress(
-                currentRepetition: rep,
-                totalRepetitions: config.chunkSettings.repetitions,
-                currentPromptIndex: promptIndex + 1,
-                totalPrompts: config.promptFiles.length,
-                currentChunkIndex: chunkIndex + 1,
-                totalChunks: chunks.length,
-                callCounter: callCounter,
-                progressPercent: progressPercent,
-                currentModelId: model.modelId,
-                currentPromptName: promptName,
-              )));
+              _emitEvent(
+                ProgressEvent(
+                  BatchProgress(
+                    currentRepetition: rep,
+                    totalRepetitions: config.chunkSettings.repetitions,
+                    currentPromptIndex: promptIndex + 1,
+                    totalPrompts: config.promptFiles.length,
+                    currentChunkIndex: chunkIndex + 1,
+                    totalChunks: chunks.length,
+                    callCounter: callCounter,
+                    progressPercent: progressPercent,
+                    currentModelId: model.modelId,
+                    currentPromptName: promptName,
+                  ),
+                  stats: stats,
+                ),
+              );
               continue;
             }
 
@@ -324,8 +385,10 @@ class _WorkerRuntime {
             if (parsed != null) {
               // F1: Rename result keys with naming convention
               // fieldName_from_templateName_rep_N
-              final templateBaseName =
-                  promptName.replaceAll(RegExp(r'\.[^.]+$'), '');
+              final templateBaseName = promptName.replaceAll(
+                RegExp(r'\.[^.]+$'),
+                '',
+              );
               final suffix = '_from_${templateBaseName}_rep_$rep';
               for (final row in parsed) {
                 final tagged = <String, dynamic>{};
@@ -340,8 +403,10 @@ class _WorkerRuntime {
                 level: LogLevel.warn,
               );
               // Mark items in chunk as missing (F1)
-              final templateBaseName =
-                  promptName.replaceAll(RegExp(r'\.[^.]+$'), '');
+              final templateBaseName = promptName.replaceAll(
+                RegExp(r'\.[^.]+$'),
+                '',
+              );
               for (final item in chunk) {
                 results.add(<String, dynamic>{
                   'ID': item.id,
@@ -362,8 +427,7 @@ class _WorkerRuntime {
                 command.items.length,
                 callCounter * config.chunkSettings.chunkSize,
               ),
-              totalInputTokens:
-                  stats.totalInputTokens + response.inputTokens,
+              totalInputTokens: stats.totalInputTokens + response.inputTokens,
               totalOutputTokens:
                   stats.totalOutputTokens + response.outputTokens,
               totalCost: stats.totalCost + callCost,
@@ -386,7 +450,7 @@ class _WorkerRuntime {
               currentPromptName: promptName,
             );
 
-            _emitEvent(ProgressEvent(progress));
+            _emitEvent(ProgressEvent(progress, stats: stats));
             _emitLog(
               'Call $callCounter/$totalApiCalls completed '
               '(rep=$rep, prompt=$promptName, chunk=${chunkIndex + 1}/${chunks.length}).',
@@ -467,10 +531,12 @@ class _WorkerRuntime {
 
   void _emitError(String message, {String? details}) {
     _emitLog(message, level: LogLevel.error, details: details);
-    _emitEvent(BatchErrorEvent(
-      message: maskSecrets(message),
-      details: details != null ? maskSecrets(details) : null,
-    ));
+    _emitEvent(
+      BatchErrorEvent(
+        message: maskSecrets(message),
+        details: details != null ? maskSecrets(details) : null,
+      ),
+    );
   }
 }
 

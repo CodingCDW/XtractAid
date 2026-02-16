@@ -35,9 +35,9 @@ class _LogViewerState extends State<LogViewer> {
               value: _filter,
               items: [
                 DropdownMenuItem<LogLevel?>(value: null, child: Text(t.logLevelAll)),
-                DropdownMenuItem<LogLevel?>(value: LogLevel.info, child: Text('INFO')),
-                DropdownMenuItem<LogLevel?>(value: LogLevel.warn, child: Text('WARN')),
-                DropdownMenuItem<LogLevel?>(value: LogLevel.error, child: Text('ERROR')),
+                DropdownMenuItem<LogLevel?>(value: LogLevel.info, child: Text(t.logLevelInfo)),
+                DropdownMenuItem<LogLevel?>(value: LogLevel.warn, child: Text(t.logLevelWarn)),
+                DropdownMenuItem<LogLevel?>(value: LogLevel.error, child: Text(t.logLevelError)),
               ],
               onChanged: (value) => setState(() => _filter = value),
             ),

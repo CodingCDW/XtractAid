@@ -16,6 +16,7 @@
   "actionOpen": "Open",
   "actionCreate": "Create",
   "actionChange": "Change",
+  "actionContinue": "Continue",
   "actionDone": "Done",
   "actionStart": "Start",
   "actionPause": "Pause",
@@ -43,6 +44,7 @@
   "labelModel": "Model",
   "labelProjectName": "Project Name",
   "labelStatus": "Status:",
+  "labelUnknown": "Unknown",
   "labelLocal": "local",
   "labelCloud": "cloud",
 
@@ -107,6 +109,33 @@
   "projectsNotFound": "Project not found.",
   "projectsLastOpened": "Last opened:",
   "projectsNever": "Never",
+  "projectsDeleteConfirm": "Delete project \"{name}\"?\n\nPath: {path}\n\nYou can remove only the list entry, or delete the full project including folder and all batch data.",
+  "@projectsDeleteConfirm": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "path": {"type": "String"}
+    }
+  },
+  "projectsDeleteListOnly": "Remove from list only",
+  "projectsDeleteProject": "Delete project",
+  "projectsDeleteSuccessFull": "Project \"{name}\" was deleted completely.",
+  "@projectsDeleteSuccessFull": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "projectsDeleteSuccessList": "Project \"{name}\" was removed from the list.",
+  "@projectsDeleteSuccessList": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "projectsDeleteFailed": "Could not delete project: {error}",
+  "@projectsDeleteFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
   "projectCreateTitle": "Create New Project",
   "projectCreateNameHint": "Please enter a project name.",
   "projectCreateFolderHint": "Please choose a target folder.",
@@ -119,6 +148,8 @@
   "projectDetailPrompts": "Prompts",
   "projectDetailInput": "Input",
   "projectDetailNoBatches": "No batches yet.",
+  "projectDetailNoPromptFiles": "No prompt files found.",
+  "projectDetailNoInputFiles": "No input files found.",
 
   "batchWizardItemsTitle": "Load Items",
   "batchWizardPromptsTitle": "Choose Prompts",
@@ -126,6 +157,12 @@
   "batchWizardModelTitle": "Configure Model",
   "batchWizardConfirmTitle": "Confirm & Start",
   "batchWizardStartBatch": "Start Batch",
+  "batchWizardTitle": "Batch Wizard - {projectName}",
+  "@batchWizardTitle": {
+    "placeholders": {
+      "projectName": {"type": "String"}
+    }
+  },
   "batchWizardSelectSource": "Please select an input source first.",
   "batchWizardLoadItems": "Please load items before continuing.",
   "batchWizardSelectPrompt": "Please select at least one prompt.",
@@ -135,6 +172,31 @@
   "batchWizardSaveError": "Could not save batch.",
   "batchWizardNotLoaded": "Batch Wizard could not be loaded.",
   "batchWizardProjectNotLoaded": "Project not loaded.",
+  "batchWizardSaveChangesTitle": "Save batch changes",
+  "batchWizardSaveChangesMessage": "This batch is already completed or failed. Do you want to update it or save as a new batch?",
+  "batchWizardUpdateExisting": "Update existing",
+  "batchWizardSaveAsNew": "Save as new",
+  "batchWizardRunningNotEditable": "Running batches cannot be edited.",
+  "batchWizardGeneratedName": "Batch {timestamp}",
+  "@batchWizardGeneratedName": {
+    "placeholders": {
+      "timestamp": {"type": "String"}
+    }
+  },
+  "batchWizardInactiveModelWarning": "Selected model status is \"{status}\". Consider selecting an active model for new runs.",
+  "@batchWizardInactiveModelWarning": {
+    "placeholders": {
+      "status": {"type": "String"}
+    }
+  },
+  "batchWizardItemsFallbackWarning": "Items could not be loaded from input source. Using stored item count.",
+  "batchDeleteTitle": "Delete batch?",
+  "batchDeleteDesc": "Delete batch \"{name}\"? This cannot be undone.",
+  "@batchDeleteDesc": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
 
   "itemsExcelCsv": "Excel/CSV",
   "itemsDocFolder": "Documents Folder",
@@ -142,6 +204,13 @@
   "itemsFolderSource": "Folder source",
   "itemsSummary": "Summary:",
   "itemsCount": "{count} items, {warnings} warnings",
+  "@itemsCount": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "warnings": {"type": "int"}
+    }
+  },
+  "itemsIdLabel": "ID",
   "itemsIdColumn": "ID Column",
   "itemsItemColumn": "Item Column",
   "itemsPreviewText": "Text (Preview)",
@@ -149,7 +218,22 @@
   "chunksChunkSize": "Chunk Size:",
   "chunksRepetitions": "Repetitions:",
   "chunksCalcChunks": "{items} Items / {chunkSize} = {chunks} Chunks",
+  "@chunksCalcChunks": {
+    "placeholders": {
+      "items": {"type": "int"},
+      "chunkSize": {"type": "int"},
+      "chunks": {"type": "int"}
+    }
+  },
   "chunksCalcCalls": "{chunks} Chunks x {prompts} Prompts x {reps} Reps = {calls} API Calls",
+  "@chunksCalcCalls": {
+    "placeholders": {
+      "chunks": {"type": "int"},
+      "prompts": {"type": "int"},
+      "reps": {"type": "int"},
+      "calls": {"type": "int"}
+    }
+  },
   "chunksTooltip": "With chunk_size > 1, multiple items are sent together in one prompt. This saves API calls but may reduce quality.",
 
   "confirmItems": "Items:",
@@ -162,11 +246,38 @@
   "confirmPrivacyCheckbox": "I confirm that sending this data to the cloud provider is compatible with my data privacy requirements.",
 
   "promptPreview": "Prompt Preview",
+  "promptSelectorAvailable": "Available",
+  "promptSelectorSelected": "Selected",
+  "promptImport": "Import",
+  "promptImportTooltip": "Import prompt files from disk",
+  "promptImportSuccess": "{count} prompt(s) imported.",
+  "@promptImportSuccess": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "promptImportSkipped": "Skipped (already exists): {names}",
+  "@promptImportSkipped": {
+    "placeholders": {
+      "names": {"type": "String"}
+    }
+  },
 
   "modelContext": "Context:",
   "modelPriceLabel": "Price (Input/Output per 1M):",
 
   "execTitle": "Execution",
+  "execBatchTitle": "Batch Execution",
+  "execBatchNameTitle": "Batch: {name}",
+  "@execBatchNameTitle": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "execBatchId": "Batch ID:",
+  "execCurrentPromptName": "Current Prompt Name:",
+  "execCurrentModel": "Current Model:",
+  "execPreparingInput": "Configuration loaded. Preparing input data...",
   "execRepetition": "Repetition:",
   "execPrompt": "Prompt:",
   "execChunk": "Chunk:",
@@ -183,20 +294,69 @@
   "execLoadingPrompts": "Loading prompts...",
   "execNoPrompts": "No prompt files found from batch configuration.",
   "execStartFailed": "Start failed: {error}",
+  "@execStartFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
   "execBatchStarted": "Batch started.",
   "execReportsCreated": "Reports created: {paths}",
+  "@execReportsCreated": {
+    "placeholders": {
+      "paths": {"type": "String"}
+    }
+  },
   "execReportsFailed": "Report generation failed: {error}",
+  "@execReportsFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "execStatusIdle": "IDLE",
+  "execStatusStarting": "STARTING",
+  "execStatusRunning": "RUNNING",
+  "execStatusPaused": "PAUSED",
+  "execStatusCompleted": "COMPLETED",
+  "execStatusFailed": "FAILED",
+  "execProgressCalls": "{percent}%  |  {completed}/{total} Calls",
+  "@execProgressCalls": {
+    "placeholders": {
+      "percent": {"type": "String"},
+      "completed": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
 
   "modelsTitle": "Models",
   "modelsRegistry": "Registry Models",
   "modelsCustom": "Custom Models",
   "modelsDiscovered": "Discovered Models",
   "modelsRegistryError": "Registry error: {error}",
+  "@modelsRegistryError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
   "modelsNoRegistry": "No registry models found.",
   "modelsCountLabel": "{count} models",
+  "@modelsCountLabel": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "modelsNoCustom": "No custom model overrides.",
   "modelsQueryProviders": "Query Providers",
   "modelsNoDiscovery": "No discovery data yet.",
+  "modelsShowInactive": "Show inactive/deprecated models",
+  "modelsRegistryTileSubtitle": "ID: {id} | Context: {contextWindow} | USD/M in/out: {inputPrice}/{outputPrice}",
+  "@modelsRegistryTileSubtitle": {
+    "placeholders": {
+      "id": {"type": "String"},
+      "contextWindow": {"type": "int"},
+      "inputPrice": {"type": "double"},
+      "outputPrice": {"type": "double"}
+    }
+  },
   "modelsIdLabel": "ID:",
   "modelsProviderLabel": "Provider:",
   "modelsStatusLabel": "Status:",
@@ -204,10 +364,125 @@
   "modelsContextWindow": "Context Window:",
   "modelsMaxOutputTokens": "Max Output Tokens:",
   "modelsCapabilities": "Capabilities",
+  "modelsCapabilityChat": "chat",
+  "modelsCapabilityVision": "vision",
+  "modelsCapabilityFn": "fn",
+  "modelsCapabilityJson": "json",
+  "modelsCapabilityReason": "reason",
+  "modelsPricingLabel": "Pricing (USD/M in,out): {inputPrice}, {outputPrice}",
+  "@modelsPricingLabel": {
+    "placeholders": {
+      "inputPrice": {"type": "double"},
+      "outputPrice": {"type": "double"}
+    }
+  },
+  "modelsCapabilitySummary": "chat={chat}, vision={vision}, functionCalling={functionCalling}, jsonMode={jsonMode}, streaming={streaming}, reasoning={reasoning}, extendedThinking={extendedThinking}",
+  "@modelsCapabilitySummary": {
+    "placeholders": {
+      "chat": {"type": "String"},
+      "vision": {"type": "String"},
+      "functionCalling": {"type": "String"},
+      "jsonMode": {"type": "String"},
+      "streaming": {"type": "String"},
+      "reasoning": {"type": "String"},
+      "extendedThinking": {"type": "String"}
+    }
+  },
+  "modelsParameterDetails": "{name}: supported={supported}, type={type}, min={min}, max={max}, default={defaultValue}, values={values}",
+  "@modelsParameterDetails": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "supported": {"type": "String"},
+      "type": {"type": "String"},
+      "min": {"type": "String"},
+      "max": {"type": "String"},
+      "defaultValue": {"type": "String"},
+      "values": {"type": "String"}
+    }
+  },
   "modelsParameters": "Parameters",
+  "modelsHideRegistryModelConfirm": "Hide model \"{modelId}\" from registry models? You can restore it later in Custom Models by deleting the override.",
+  "@modelsHideRegistryModelConfirm": {
+    "placeholders": {
+      "modelId": {"type": "String"}
+    }
+  },
+  "modelsHideRegistryModelDone": "Model \"{modelId}\" was hidden.",
+  "@modelsHideRegistryModelDone": {
+    "placeholders": {
+      "modelId": {"type": "String"}
+    }
+  },
+  "modelsContextWindowField": "context_window",
+  "modelsMaxOutputTokensField": "max_output_tokens",
+  "modelsNoParameterDefinitions": "No parameter definitions found.",
+  "modelsRawJson": "JSON",
+  "modelsContextWindowPositive": "context_window must be a positive integer.",
+  "modelsMaxOutputTokensPositive": "max_output_tokens must be a positive integer.",
+  "modelsParameterMeta": "type={type}   min={min}   max={max}",
+  "@modelsParameterMeta": {
+    "placeholders": {
+      "type": {"type": "String"},
+      "min": {"type": "String"},
+      "max": {"type": "String"}
+    }
+  },
+  "modelsDefaultLabel": "default",
+  "modelsApiNameOptional": "api_name (optional)",
+  "modelsInvalidIntegerDefault": "Invalid integer default for parameter \"{key}\".",
+  "@modelsInvalidIntegerDefault": {
+    "placeholders": {
+      "key": {"type": "String"}
+    }
+  },
+  "modelsInvalidFloatDefault": "Invalid float default for parameter \"{key}\".",
+  "@modelsInvalidFloatDefault": {
+    "placeholders": {
+      "key": {"type": "String"}
+    }
+  },
   "modelsEditOverride": "Edit override:",
+  "modelsOverrideJsonLabel": "overrideJson",
+  "modelsJsonMustBeObject": "JSON must be an object.",
+  "modelsInvalidJson": "Invalid JSON: {error}",
+  "@modelsInvalidJson": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "modelsCreateCustomTitle": "Create Custom Model",
+  "modelsCreateCustomModelId": "modelId",
+  "modelsCreateCustomProvider": "provider",
+  "modelsModelIdRequired": "modelId is required.",
+  "modelsModelNotFound": "Model not found.",
+  "modelsDiscoveryNotReachable": "Not reachable at {baseUrl}",
+  "@modelsDiscoveryNotReachable": {
+    "placeholders": {
+      "baseUrl": {"type": "String"}
+    }
+  },
+  "modelsDiscoveryNoModels": "No models found at {baseUrl}",
+  "@modelsDiscoveryNoModels": {
+    "placeholders": {
+      "baseUrl": {"type": "String"}
+    }
+  },
+  "modelsDiscoveryFailedAt": "Discovery failed at {baseUrl}: {error}",
+  "@modelsDiscoveryFailedAt": {
+    "placeholders": {
+      "baseUrl": {"type": "String"},
+      "error": {"type": "String"}
+    }
+  },
+  "modelsCustomModelDescription": "Custom model added from Model Manager",
   "modelsOverrideSaved": "Override saved.",
   "modelsOverrideDeleted": "Override deleted.",
+  "modelsDiscoveryFailed": "Discovery failed: {error}",
+  "@modelsDiscoveryFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
 
   "settingsTitle": "Settings",
   "settingsSectionGeneral": "General",
@@ -223,16 +498,59 @@
   "settingsStrictLocalModeDesc": "Only allow local providers (Ollama, LM Studio). Cloud providers are disabled.",
   "settingsCheckpointInterval": "Checkpoint Interval",
   "settingsCheckpointIntervalDesc": "A checkpoint is saved every {count} API calls",
+  "@settingsCheckpointIntervalDesc": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "settingsResetApp": "Reset App",
   "settingsResetAppDesc": "Delete all settings, providers, and API keys. Projects are preserved.",
   "settingsPasswordChanged": "Password changed successfully",
   "settingsMinPasswordLength": "At least 8 characters",
   "settingsPasswordMismatch": "Passwords do not match",
   "settingsWrongPassword": "Current password is incorrect",
+  "settingsDecryptKeysFailed": "Failed to decrypt existing keys. Password not changed.",
+  "settingsReEncryptionFailed": "Re-encryption failed. Password not changed.",
   "settingsProviderTitle": "API Providers",
+  "settingsProviderAdd": "Add provider",
+  "settingsProviderAddTitle": "Add API provider",
+  "settingsProviderEditTitle": "Edit provider: {name}",
+  "@settingsProviderEditTitle": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "settingsProviderName": "Name",
+  "settingsProviderType": "Type",
+  "settingsProviderBaseUrl": "Base URL",
+  "settingsProviderApiKey": "API Key",
+  "settingsProviderApiKeyLocalOptional": "Optional for local providers.",
+  "settingsProviderApiKeyKeepHint": "Leave empty to keep stored key.",
+  "settingsProviderApiKeyRequiredHint": "Required for cloud providers.",
+  "settingsProviderClearApiKey": "Delete stored API key",
+  "settingsProviderEnabled": "Enabled",
+  "settingsProviderKeyStored": "API key stored",
+  "settingsProviderKeyMissing": "No API key",
+  "settingsProviderNameRequired": "Please enter a provider name.",
+  "settingsProviderBaseUrlRequired": "Please enter a base URL.",
+  "settingsProviderApiKeyRequired": "Please enter an API key for this provider type.",
+  "settingsProviderEncryptionLocked": "Cannot save API key while app is locked.",
+  "settingsProviderAdded": "Provider added.",
+  "settingsProviderUpdated": "Provider updated.",
+  "settingsProviderSaveError": "Could not save provider: {error}",
+  "@settingsProviderSaveError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
   "settingsNoProviders": "No providers configured",
   "settingsDeleteProvider": "Delete provider?",
   "settingsDeleteProviderDesc": "Delete provider \"{name}\" and its stored API key?",
+  "@settingsDeleteProviderDesc": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
   "settingsResetTitle": "Reset App?",
   "settingsResetDesc": "All settings, providers, and API keys will be deleted. Project folders on disk will be preserved.\n\nThis action cannot be undone.",
 
@@ -245,6 +563,12 @@
 
   "privacyTitle": "Privacy Notice",
   "privacyMessage": "You are sending data to {provider} ({region}). Please consider GDPR and internal policies.",
+  "@privacyMessage": {
+    "placeholders": {
+      "provider": {"type": "String"},
+      "region": {"type": "String"}
+    }
+  },
   "privacyDontShowAgain": "Don't show again",
   "privacyUnderstood": "Understood",
 
@@ -258,8 +582,16 @@
 
   "logLevelAll": "All",
   "logLevelLabel": "Level:",
+  "logLevelInfo": "INFO",
+  "logLevelWarn": "WARN",
+  "logLevelError": "ERROR",
 
   "noSourceSelected": "No source selected",
 
-  "errorGeneric": "Error: {error}"
+  "errorGeneric": "Error: {error}",
+  "@errorGeneric": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  }
 }

@@ -1,41 +1,8 @@
 {
   "$schema": "https://xtractaid.dev/schemas/registry-v1.json",
-  "version": "2025.06.01",
-  "updated_at": "2025-06-01T12:00:00Z",
+  "version": "2026.02.16",
+  "updated_at": "2026-02-16T00:00:00Z",
   "providers": {
-    "openai": {
-      "name": "OpenAI",
-      "base_url": "https://api.openai.com/v1",
-      "auth_type": "bearer",
-      "models_endpoint": "/models",
-      "supports_model_list": true,
-      "docs_url": "https://platform.openai.com/docs/models"
-    },
-    "anthropic": {
-      "name": "Anthropic",
-      "base_url": "https://api.anthropic.com/v1",
-      "auth_type": "x-api-key",
-      "supports_model_list": false,
-      "docs_url": "https://docs.anthropic.com/en/docs/models-overview"
-    },
-    "google": {
-      "name": "Google AI",
-      "base_url": "https://generativelanguage.googleapis.com/v1",
-      "auth_type": "query_param",
-      "auth_param": "key",
-      "models_endpoint": "/models",
-      "supports_model_list": true,
-      "docs_url": "https://ai.google.dev/models"
-    },
-    "openrouter": {
-      "name": "OpenRouter",
-      "base_url": "https://openrouter.ai/api/v1",
-      "auth_type": "bearer",
-      "models_endpoint": "/models",
-      "supports_model_list": true,
-      "supports_pricing_api": true,
-      "docs_url": "https://openrouter.ai/docs"
-    },
     "ollama": {
       "name": "Ollama (Local)",
       "base_url": "http://localhost:11434",
@@ -51,331 +18,378 @@
       "models_endpoint": "/models",
       "supports_model_list": true,
       "is_local": true,
-      "requires_cli": true,
+      "requires_cli": false,
       "cli_command": "lms"
+    },
+    "openai": {
+      "name": "OpenAI",
+      "base_url": "https://api.openai.com/v1",
+      "auth_type": "bearer",
+      "models_endpoint": "/models",
+      "supports_model_list": true,
+      "docs_url": "https://platform.openai.com/docs/models"
+    },
+    "anthropic": {
+      "name": "Anthropic",
+      "base_url": "https://api.anthropic.com/v1",
+      "auth_type": "x-api-key",
+      "supports_model_list": true,
+      "docs_url": "https://platform.claude.com/docs/en/api/models/list",
+      "models_endpoint": "/models"
+    },
+    "google": {
+      "name": "Google AI",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta",
+      "auth_type": "query_param",
+      "auth_param": "key",
+      "models_endpoint": "/models",
+      "supports_model_list": true,
+      "docs_url": "https://ai.google.dev/api"
+    },
+    "openrouter": {
+      "name": "OpenRouter",
+      "base_url": "https://openrouter.ai/api/v1",
+      "auth_type": "bearer",
+      "models_endpoint": "/models",
+      "supports_model_list": true,
+      "supports_pricing_api": true,
+      "docs_url": "https://openrouter.ai/docs"
     }
   },
   "models": {
-    "gpt-4o": {
+    "gpt-5-mini": {
       "provider": "openai",
-      "display_name": "GPT-4o",
-      "description": "Most capable GPT-4 model, multimodal",
-      "context_window": 128000,
-      "max_output_tokens": 16384,
+      "display_name": "GPT-5 mini",
+      "description": "Faster, cost-efficient GPT-5 variant for well-defined tasks",
+      "context_window": 400000,
+      "max_output_tokens": 128000,
       "pricing": {
-        "input_per_million": 2.50,
-        "output_per_million": 10.00,
+        "input_per_million": 0.25,
+        "output_per_million": 2.0,
         "currency": "USD",
-        "updated_at": "2025-05-15"
+        "updated_at": "2026-02-15"
       },
       "capabilities": {
         "chat": true,
         "vision": true,
         "function_calling": true,
         "json_mode": true,
-        "streaming": true
+        "streaming": true,
+        "reasoning": true
       },
       "parameters": {
-        "temperature": {"supported": true, "type": "float", "min": 0.0, "max": 2.0, "default": 1.0},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 16384, "default": 4096},
-        "top_p": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0},
-        "reasoning_effort": {"supported": false}
+        "temperature": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 1.0
+        },
+        "max_tokens": {
+          "supported": true,
+          "type": "integer",
+          "min": 1,
+          "max": 128000,
+          "default": 4096,
+          "api_name": "max_output_tokens"
+        },
+        "top_p": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0
+        },
+        "reasoning_effort": {
+          "supported": true,
+          "type": "enum",
+          "values": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
+          "default": "none"
+        }
       },
-      "status": "active"
+      "status": "active",
+      "notes": "Use `max_output_tokens` for Responses API; if you call Chat Completions, map to `max_completion_tokens`."
     },
-    "gpt-4o-mini": {
+    "gpt-5.2": {
       "provider": "openai",
-      "display_name": "GPT-4o Mini",
-      "description": "Fast, affordable GPT-4 variant",
-      "context_window": 128000,
-      "max_output_tokens": 16384,
+      "display_name": "GPT-5.2",
+      "description": "Flagship GPT-5 generation model for coding and agentic workflows",
+      "context_window": 400000,
+      "max_output_tokens": 128000,
       "pricing": {
-        "input_per_million": 0.15,
-        "output_per_million": 0.60,
+        "input_per_million": 1.75,
+        "output_per_million": 14.0,
         "currency": "USD",
-        "updated_at": "2025-05-15"
+        "updated_at": "2026-02-15"
       },
       "capabilities": {
         "chat": true,
         "vision": true,
         "function_calling": true,
         "json_mode": true,
-        "streaming": true
-      },
-      "parameters": {
-        "temperature": {"supported": true, "type": "float", "min": 0.0, "max": 2.0, "default": 1.0},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 16384, "default": 4096},
-        "top_p": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0},
-        "reasoning_effort": {"supported": false}
-      },
-      "status": "active"
-    },
-    "o1": {
-      "provider": "openai",
-      "display_name": "o1",
-      "description": "Advanced reasoning model",
-      "context_window": 200000,
-      "max_output_tokens": 100000,
-      "pricing": {
-        "input_per_million": 15.00,
-        "output_per_million": 60.00,
-        "currency": "USD",
-        "updated_at": "2025-05-15"
-      },
-      "capabilities": {
-        "chat": true,
-        "vision": true,
-        "function_calling": false,
-        "json_mode": false,
         "streaming": true,
         "reasoning": true
       },
       "parameters": {
-        "temperature": {"supported": false},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 100000, "default": 16384},
-        "top_p": {"supported": false},
-        "reasoning_effort": {"supported": true, "type": "enum", "values": ["low", "medium", "high"], "default": "medium"}
+        "temperature": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 1.0
+        },
+        "max_tokens": {
+          "supported": true,
+          "type": "integer",
+          "min": 1,
+          "max": 128000,
+          "default": 4096,
+          "api_name": "max_output_tokens"
+        },
+        "top_p": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0
+        },
+        "reasoning_effort": {
+          "supported": true,
+          "type": "enum",
+          "values": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
+          "default": "none"
+        }
       },
-      "notes": "Temperature not supported. Uses internal chain-of-thought.",
-      "status": "active"
+      "status": "active",
+      "notes": "Use `max_output_tokens` for Responses API; if you call Chat Completions, map to `max_completion_tokens`."
     },
-    "o1-mini": {
-      "provider": "openai",
-      "display_name": "o1 Mini",
-      "description": "Fast reasoning model",
-      "context_window": 128000,
-      "max_output_tokens": 65536,
-      "pricing": {
-        "input_per_million": 3.00,
-        "output_per_million": 12.00,
-        "currency": "USD",
-        "updated_at": "2025-05-15"
-      },
-      "capabilities": {
-        "chat": true,
-        "vision": false,
-        "function_calling": false,
-        "json_mode": false,
-        "streaming": true,
-        "reasoning": true
-      },
-      "parameters": {
-        "temperature": {"supported": false},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 65536, "default": 16384},
-        "reasoning_effort": {"supported": true, "type": "enum", "values": ["low", "medium", "high"], "default": "medium"}
-      },
-      "status": "active"
-    },
-    "o3-mini": {
-      "provider": "openai",
-      "display_name": "o3 Mini",
-      "description": "Latest compact reasoning model",
-      "context_window": 200000,
-      "max_output_tokens": 100000,
-      "pricing": {
-        "input_per_million": 1.10,
-        "output_per_million": 4.40,
-        "currency": "USD",
-        "updated_at": "2025-05-15"
-      },
-      "capabilities": {
-        "chat": true,
-        "vision": false,
-        "function_calling": true,
-        "json_mode": true,
-        "streaming": true,
-        "reasoning": true
-      },
-      "parameters": {
-        "temperature": {"supported": false},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 100000, "default": 16384},
-        "reasoning_effort": {"supported": true, "type": "enum", "values": ["low", "medium", "high"], "default": "medium"}
-      },
-      "status": "active"
-    },
-    "claude-sonnet-4-20250514": {
+    "claude-sonnet-4-5": {
       "provider": "anthropic",
-      "display_name": "Claude Sonnet 4",
-      "description": "Latest Claude model, best balance of speed and capability",
+      "display_name": "Claude Sonnet 4.5",
+      "description": "Frontier coding and agent model, strong speed/capability balance",
       "context_window": 200000,
-      "max_output_tokens": 16384,
+      "max_output_tokens": 64000,
       "pricing": {
-        "input_per_million": 3.00,
-        "output_per_million": 15.00,
+        "input_per_million": 3.0,
+        "output_per_million": 15.0,
         "currency": "USD",
-        "updated_at": "2025-05-15"
+        "updated_at": "2026-02-15"
       },
       "capabilities": {
         "chat": true,
         "vision": true,
         "function_calling": true,
-        "json_mode": false,
+        "json_mode": true,
         "streaming": true,
         "extended_thinking": true
       },
       "parameters": {
-        "temperature": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 16384, "default": 4096},
-        "top_p": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0},
-        "top_k": {"supported": true, "type": "integer", "min": 1, "max": 500, "default": 250}
+        "temperature": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0
+        },
+        "max_tokens": {
+          "supported": true,
+          "type": "integer",
+          "min": 1,
+          "max": 64000,
+          "default": 4096
+        },
+        "top_p": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0
+        },
+        "top_k": {
+          "supported": true,
+          "type": "integer",
+          "min": 1,
+          "max": 500,
+          "default": 250
+        }
       },
+      "notes": "Supports 1M context only with beta header `context-1m-2025-08-07` (tier restrictions apply); otherwise keep prompts <=200K tokens.",
       "status": "active"
     },
-    "claude-3-5-sonnet-20241022": {
+    "claude-opus-4-6": {
       "provider": "anthropic",
-      "display_name": "Claude 3.5 Sonnet",
-      "description": "Previous generation Claude, still excellent",
+      "display_name": "Claude Opus 4.6",
+      "description": "Most capable Claude model, optimized for complex coding and long-running agents",
       "context_window": 200000,
-      "max_output_tokens": 8192,
+      "max_output_tokens": 128000,
       "pricing": {
-        "input_per_million": 3.00,
-        "output_per_million": 15.00,
+        "input_per_million": 5.0,
+        "output_per_million": 25.0,
         "currency": "USD",
-        "updated_at": "2025-05-15"
-      },
-      "capabilities": {
-        "chat": true,
-        "vision": true,
-        "function_calling": true,
-        "json_mode": false,
-        "streaming": true
-      },
-      "parameters": {
-        "temperature": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 8192, "default": 4096},
-        "top_p": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0},
-        "top_k": {"supported": true, "type": "integer", "min": 1, "max": 500, "default": 250}
-      },
-      "status": "active"
-    },
-    "claude-3-5-haiku-20241022": {
-      "provider": "anthropic",
-      "display_name": "Claude 3.5 Haiku",
-      "description": "Fast and affordable Claude",
-      "context_window": 200000,
-      "max_output_tokens": 8192,
-      "pricing": {
-        "input_per_million": 0.80,
-        "output_per_million": 4.00,
-        "currency": "USD",
-        "updated_at": "2025-05-15"
-      },
-      "capabilities": {
-        "chat": true,
-        "vision": true,
-        "function_calling": true,
-        "json_mode": false,
-        "streaming": true
-      },
-      "parameters": {
-        "temperature": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 8192, "default": 4096},
-        "top_p": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0}
-      },
-      "status": "active"
-    },
-    "claude-3-opus-20240229": {
-      "provider": "anthropic",
-      "display_name": "Claude 3 Opus",
-      "description": "Most capable Claude 3 model",
-      "context_window": 200000,
-      "max_output_tokens": 4096,
-      "pricing": {
-        "input_per_million": 15.00,
-        "output_per_million": 75.00,
-        "currency": "USD",
-        "updated_at": "2025-05-15"
-      },
-      "capabilities": {
-        "chat": true,
-        "vision": true,
-        "function_calling": true,
-        "json_mode": false,
-        "streaming": true
-      },
-      "parameters": {
-        "temperature": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 4096, "default": 4096}
-      },
-      "status": "active"
-    },
-    "gemini-1.5-pro": {
-      "provider": "google",
-      "display_name": "Gemini 1.5 Pro",
-      "description": "Google's flagship model with 1M context",
-      "context_window": 1000000,
-      "max_output_tokens": 8192,
-      "pricing": {
-        "input_per_million": 1.25,
-        "output_per_million": 5.00,
-        "currency": "USD",
-        "updated_at": "2025-05-15",
-        "notes": "Prices for prompts >128K tokens are higher"
+        "updated_at": "2026-02-15",
+        "notes": "Base price starts at $5/$25 per 1M input/output; long-context premium applies for requests >200K input tokens."
       },
       "capabilities": {
         "chat": true,
         "vision": true,
         "function_calling": true,
         "json_mode": true,
-        "streaming": true
+        "streaming": true,
+        "extended_thinking": true
       },
       "parameters": {
-        "temperature": {"supported": true, "type": "float", "min": 0.0, "max": 2.0, "default": 1.0},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 8192, "default": 4096, "api_name": "maxOutputTokens"},
-        "top_p": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0},
-        "top_k": {"supported": true, "type": "integer", "min": 1, "max": 40, "default": 40}
+        "temperature": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0
+        },
+        "max_tokens": {
+          "supported": true,
+          "type": "integer",
+          "min": 1,
+          "max": 128000,
+          "default": 4096
+        },
+        "top_p": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0
+        },
+        "top_k": {
+          "supported": true,
+          "type": "integer",
+          "min": 1,
+          "max": 500,
+          "default": 250
+        }
       },
-      "status": "active"
+      "status": "active",
+      "notes": "Supports 1M context with beta header `context-1m-2025-08-07` (tier restrictions apply). Long-context pricing applies above 200K input tokens."
     },
-    "gemini-1.5-flash": {
+    "gemini-3-flash-preview": {
       "provider": "google",
-      "display_name": "Gemini 1.5 Flash",
-      "description": "Fast and efficient Gemini variant",
-      "context_window": 1000000,
-      "max_output_tokens": 8192,
+      "display_name": "Gemini 3 Flash Preview",
+      "description": "Balanced Gemini 3 model optimized for speed and scale",
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
       "pricing": {
-        "input_per_million": 0.075,
-        "output_per_million": 0.30,
+        "input_per_million": 0.5,
+        "output_per_million": 3.0,
         "currency": "USD",
-        "updated_at": "2025-05-15"
+        "updated_at": "2026-02-15"
       },
       "capabilities": {
         "chat": true,
         "vision": true,
         "function_calling": true,
         "json_mode": true,
-        "streaming": true
+        "streaming": true,
+        "reasoning": true
       },
       "parameters": {
-        "temperature": {"supported": true, "type": "float", "min": 0.0, "max": 2.0, "default": 1.0},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 8192, "default": 4096, "api_name": "maxOutputTokens"}
+        "temperature": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 1.0
+        },
+        "max_tokens": {
+          "supported": true,
+          "type": "integer",
+          "min": 1,
+          "max": 65536,
+          "default": 4096,
+          "api_name": "maxOutputTokens"
+        },
+        "top_p": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0
+        },
+        "top_k": {
+          "supported": true,
+          "type": "integer",
+          "min": 1,
+          "max": 40,
+          "default": 40
+        }
       },
-      "status": "active"
+      "status": "active",
+      "notes": "Preview model: verify current availability and limits via models.list before routing production traffic."
     },
-    "gemini-2.0-flash": {
+    "gemini-3-pro-preview": {
       "provider": "google",
-      "display_name": "Gemini 2.0 Flash",
-      "description": "Latest Gemini 2.0 model",
-      "context_window": 1000000,
-      "max_output_tokens": 8192,
+      "display_name": "Gemini 3 Pro Preview",
+      "description": "Most capable Gemini 3 multimodal reasoning model",
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
       "pricing": {
-        "input_per_million": 0.10,
-        "output_per_million": 0.40,
+        "input_per_million": 2.0,
+        "output_per_million": 12.0,
         "currency": "USD",
-        "updated_at": "2025-05-15"
+        "updated_at": "2026-02-15",
+        "notes": "Requests above 200K input tokens are priced at $4 input / $18 output per 1M tokens."
       },
       "capabilities": {
         "chat": true,
         "vision": true,
         "function_calling": true,
         "json_mode": true,
-        "streaming": true
+        "streaming": true,
+        "reasoning": true
       },
       "parameters": {
-        "temperature": {"supported": true, "type": "float", "min": 0.0, "max": 2.0, "default": 1.0},
-        "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 8192, "default": 4096}
+        "temperature": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 1.0
+        },
+        "max_tokens": {
+          "supported": true,
+          "type": "integer",
+          "min": 1,
+          "max": 65536,
+          "default": 4096,
+          "api_name": "maxOutputTokens"
+        },
+        "top_p": {
+          "supported": true,
+          "type": "float",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0
+        },
+        "top_k": {
+          "supported": true,
+          "type": "integer",
+          "min": 1,
+          "max": 40,
+          "default": 40
+        }
       },
-      "status": "active"
+      "status": "active",
+      "notes": "Preview model: verify current availability and limits via models.list before routing production traffic."
     }
   },
   "local_model_defaults": {
@@ -392,9 +406,27 @@
       "streaming": true
     },
     "parameters": {
-      "temperature": {"supported": true, "type": "float", "min": 0.0, "max": 2.0, "default": 0.7},
-      "max_tokens": {"supported": true, "type": "integer", "min": 1, "max": 32768, "default": 4096},
-      "top_p": {"supported": true, "type": "float", "min": 0.0, "max": 1.0, "default": 1.0}
+      "temperature": {
+        "supported": true,
+        "type": "float",
+        "min": 0.0,
+        "max": 2.0,
+        "default": 0.7
+      },
+      "max_tokens": {
+        "supported": true,
+        "type": "integer",
+        "min": 1,
+        "max": 32768,
+        "default": 4096
+      },
+      "top_p": {
+        "supported": true,
+        "type": "float",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 1.0
+      }
     }
   }
 }

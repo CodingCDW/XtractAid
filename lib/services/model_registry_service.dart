@@ -16,45 +16,98 @@ class ModelRegistryService {
   static final _log = Logger('ModelRegistryService');
   // M7: In-memory cache TTL (1 hour) separate from remote fetch interval
   static const Duration _inMemoryCacheTtl = Duration(hours: 1);
+  static const Duration _remoteFailureLogCooldown = Duration(minutes: 10);
+  static const Duration _remoteFailureRetryInterval = Duration(minutes: 15);
   final AppDatabase _db;
   final Dio _dio;
 
   Map<String, dynamic> _cache = {};
   DateTime? _cacheUpdated;
+  DateTime? _remoteCacheUpdated;
+  Map<String, dynamic>? _remoteCache;
+  String? _lastRemoteFailureSignature;
+  DateTime? _lastRemoteFailureLoggedAt;
 
   ModelRegistryService({required AppDatabase db, Dio? dio})
-      : _db = db,
-        _dio = dio ?? Dio();
+    : _db = db,
+      _dio = dio ?? Dio();
 
   /// Whether the registry has been loaded.
   bool get isLoaded => _cache.isNotEmpty;
 
+  /// Clears in-memory cache so the next read re-merges bundled/remote/user data.
+  void clearCache() {
+    _cache = {};
+    _cacheUpdated = null;
+  }
+
   /// Load the registry bundled with the app.
   Future<Map<String, dynamic>> getBundledRegistry() async {
-    final jsonString =
-        await rootBundle.loadString('assets/model_registry.json');
+    final jsonString = await rootBundle.loadString(
+      'assets/model_registry.json',
+    );
     return json.decode(jsonString) as Map<String, dynamic>;
   }
 
   /// Fetch the latest registry from GitHub.
   Future<Map<String, dynamic>?> fetchRemoteRegistry() async {
-    try {
-      final response = await _dio.get(
-        AppConstants.remoteRegistryUrl,
-        options: Options(receiveTimeout: const Duration(seconds: 10)),
-      );
-      return response.data as Map<String, dynamic>;
-    } catch (e) {
-      _log.warning('Failed to fetch remote registry: $e');
-      return null;
+    if (_remoteCacheUpdated != null &&
+        DateTime.now().difference(_remoteCacheUpdated!) <
+            (_remoteCache == null
+                ? _remoteFailureRetryInterval
+                : AppConstants.registryCacheDuration)) {
+      return _remoteCache;
     }
+
+    final attempts = <String>[];
+    for (final url in AppConstants.remoteRegistryUrls) {
+      try {
+        final response = await _dio.get(
+          url,
+          options: Options(receiveTimeout: const Duration(seconds: 10)),
+        );
+        final data = response.data;
+        if (data is Map<String, dynamic>) {
+          _remoteCache = data;
+          _remoteCacheUpdated = DateTime.now();
+          return data;
+        }
+        attempts.add('$url -> invalid JSON payload');
+      } on DioException catch (e) {
+        final status = e.response?.statusCode;
+        final statusLabel = status != null ? 'HTTP $status' : e.type.name;
+        attempts.add('$url -> $statusLabel');
+      } catch (e) {
+        attempts.add('$url -> $e');
+      }
+    }
+
+    _remoteCache = null;
+    _remoteCacheUpdated = DateTime.now();
+    _logRemoteFailure(attempts.join(' | '));
+    return null;
+  }
+
+  void _logRemoteFailure(String signature) {
+    final now = DateTime.now();
+    final sameFailure = _lastRemoteFailureSignature == signature;
+    final withinCooldown =
+        _lastRemoteFailureLoggedAt != null &&
+        now.difference(_lastRemoteFailureLoggedAt!) < _remoteFailureLogCooldown;
+    if (sameFailure && withinCooldown) {
+      return;
+    }
+    _lastRemoteFailureSignature = signature;
+    _lastRemoteFailureLoggedAt = now;
+    _log.warning('Failed to fetch remote registry: $signature');
   }
 
   /// Get user-defined model configurations from local DB.
   Future<Map<String, Map<String, dynamic>>> getUserOverrides() async {
     final rows = await _db.modelsDao.getAllUserOverrides();
     return {
-      for (final r in rows) r.modelId: json.decode(r.overrideJson) as Map<String, dynamic>,
+      for (final r in rows)
+        r.modelId: json.decode(r.overrideJson) as Map<String, dynamic>,
     };
   }
 
@@ -177,7 +230,8 @@ class ModelRegistryService {
       contextWindow: raw['context_window'] as int? ?? 0,
       maxOutputTokens: raw['max_output_tokens'] as int? ?? 4096,
       pricing: ModelPricing(
-        inputPerMillion: (pricing['input_per_million'] as num?)?.toDouble() ?? 0,
+        inputPerMillion:
+            (pricing['input_per_million'] as num?)?.toDouble() ?? 0,
         outputPerMillion:
             (pricing['output_per_million'] as num?)?.toDouble() ?? 0,
         currency: pricing['currency'] as String? ?? 'USD',
