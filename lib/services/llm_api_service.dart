@@ -419,8 +419,7 @@ class LlmApiService {
     final body = <String, dynamic>{
       'model': modelId,
       'messages': apiMessages,
-      // ignore: use_null_aware_elements
-      if (systemPrompt != null) 'system': systemPrompt,
+      'system': ?systemPrompt,
       'max_tokens': maxTokens,
       ...filtered,
     };
@@ -500,10 +499,10 @@ class LlmApiService {
           ],
         },
       'generationConfig': {
-        if (temperature != null) 'temperature': temperature,
-        if (maxTokens != null) 'maxOutputTokens': maxTokens,
-        if (topP != null) 'topP': topP,
-        if (topK != null) 'topK': topK,
+        'temperature': ?temperature,
+        'maxOutputTokens': ?maxTokens,
+        'topP': ?topP,
+        'topK': ?topK,
       },
     };
 
@@ -555,9 +554,9 @@ class LlmApiService {
       aliases: const ['num_predict', 'max_output_tokens'],
     );
     final options = <String, dynamic>{
-      if (temperature != null) 'temperature': temperature,
-      if (topP != null) 'top_p': topP,
-      if (maxTokens != null) 'num_predict': maxTokens,
+      'temperature': ?temperature,
+      'top_p': ?topP,
+      'num_predict': ?maxTokens,
     };
     final body = <String, dynamic>{
       'model': modelId,

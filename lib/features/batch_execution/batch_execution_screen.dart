@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/utils/batch_helpers.dart';
 import '../../data/models/batch_config.dart';
 import '../../data/models/batch_stats.dart';
 import '../../data/models/item.dart';
@@ -62,7 +63,7 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
     });
 
     final execState = ref.watch(batchExecutionProvider);
-    final statusLabel = _statusLabel(execState.status, t);
+    final statusLabel = batchExecutionStatusLabel(execState.status, t);
     final statusColor = _statusColor(execState.status, context);
     final progress = execState.progress;
     final stats = execState.stats;
@@ -444,16 +445,6 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
     await db.batchesDao.updateStatus(widget.batchId, status);
   }
 
-  String _statusLabel(BatchExecutionStatus status, S t) {
-    return switch (status) {
-      BatchExecutionStatus.idle => t.execStatusIdle,
-      BatchExecutionStatus.starting => t.execStatusStarting,
-      BatchExecutionStatus.running => t.execStatusRunning,
-      BatchExecutionStatus.paused => t.execStatusPaused,
-      BatchExecutionStatus.completed => t.execStatusCompleted,
-      BatchExecutionStatus.failed => t.execStatusFailed,
-    };
-  }
 
   Color _statusColor(BatchExecutionStatus status, BuildContext context) {
     return switch (status) {

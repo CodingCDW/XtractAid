@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show Value;
 
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/utils/batch_helpers.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/model_info.dart';
 import '../../providers/database_provider.dart';
@@ -23,7 +24,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
   final Dio _dio = Dio();
   bool _isDiscovering = false;
   bool _showInactiveRegistryModels = false;
-  Map<String, List<_DiscoveredModel>> _discovered = const {};
+  Map<String, List<DiscoveredModel>> _discovered = const {};
   String? _discoverError;
 
   @override
@@ -1173,7 +1174,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
       final registryProviders = registry.getProviders();
       final providers = await db.providersDao.getEnabled();
 
-      final discovered = <String, List<_DiscoveredModel>>{};
+      final discovered = <String, List<DiscoveredModel>>{};
       final enabledByType = <String, dynamic>{
         for (final provider in providers) provider.type: provider,
       };
@@ -1228,11 +1229,11 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
             ),
           );
 
-          final models = _extractDiscoveredModels(provider.type, response.data);
+          final models = extractDiscoveredModels(provider.type, response.data);
           discovered[provider.type] = models;
         } catch (e) {
           discovered[provider.type] = [
-            _DiscoveredModel(
+            DiscoveredModel(
               provider: provider.type,
               id: t.modelsDiscoveryFailed('$e'),
               canAdd: false,
@@ -1263,7 +1264,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     }
   }
 
-  Future<List<_DiscoveredModel>> _discoverLocalModels({
+  Future<List<DiscoveredModel>> _discoverLocalModels({
     required String providerType,
     required String baseUrl,
   }) async {
@@ -1275,7 +1276,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     final reachable = await _isReachable(endpoint);
     if (!reachable) {
       return [
-        _DiscoveredModel(
+        DiscoveredModel(
           provider: providerType,
           id: t.modelsDiscoveryNotReachable(normalizedBaseUrl),
           canAdd: false,
@@ -1292,12 +1293,12 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
           receiveTimeout: const Duration(seconds: 12),
         ),
       );
-      final models = _extractDiscoveredModels(providerType, response.data);
+      final models = extractDiscoveredModels(providerType, response.data);
       if (models.isNotEmpty) {
         return models;
       }
       return [
-        _DiscoveredModel(
+        DiscoveredModel(
           provider: providerType,
           id: t.modelsDiscoveryNoModels(normalizedBaseUrl),
           canAdd: false,
@@ -1305,7 +1306,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
       ];
     } catch (e) {
       return [
-        _DiscoveredModel(
+        DiscoveredModel(
           provider: providerType,
           id: t.modelsDiscoveryFailedAt(normalizedBaseUrl, '$e'),
           canAdd: false,
@@ -1362,35 +1363,6 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     return normalized;
   }
 
-  List<_DiscoveredModel> _extractDiscoveredModels(
-    String providerType,
-    dynamic payload,
-  ) {
-    if (providerType == 'ollama') {
-      if (payload is Map && payload['models'] is List) {
-        final list = payload['models'] as List;
-        return list
-            .whereType<Map>()
-            .map((m) => m['name']?.toString() ?? '')
-            .where((s) => s.isNotEmpty)
-            .map((id) => _DiscoveredModel(provider: providerType, id: id))
-            .toList();
-      }
-      return const [];
-    }
-
-    if (payload is Map && payload['data'] is List) {
-      final list = payload['data'] as List;
-      return list
-          .whereType<Map>()
-          .map((m) => m['id']?.toString() ?? '')
-          .where((s) => s.isNotEmpty)
-          .map((id) => _DiscoveredModel(provider: providerType, id: id))
-          .toList();
-    }
-
-    return const [];
-  }
 
   Future<void> _showCreateCustomModelDialog() async {
     final registry = ref.read(modelRegistryProvider);
@@ -1490,7 +1462,7 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
     await _upsertCustomModel(modelId: modelId, provider: selectedProvider);
   }
 
-  Future<void> _addDiscoveredModelToCustom(_DiscoveredModel model) async {
+  Future<void> _addDiscoveredModelToCustom(DiscoveredModel model) async {
     await _upsertCustomModel(modelId: model.id, provider: model.provider);
   }
 
@@ -1578,14 +1550,3 @@ class _ModelManagerScreenState extends ConsumerState<ModelManagerScreen> {
   }
 }
 
-class _DiscoveredModel {
-  const _DiscoveredModel({
-    required this.provider,
-    required this.id,
-    this.canAdd = true,
-  });
-
-  final String provider;
-  final String id;
-  final bool canAdd;
-}

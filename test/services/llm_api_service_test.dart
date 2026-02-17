@@ -465,4 +465,174 @@ void main() {
       );
     });
   });
+
+  group('Ollama URL normalization', () {
+    Future<_OllamaPathInterceptor> callWithBaseUrl(String baseUrl) async {
+      final interceptor = _OllamaPathInterceptor(chatStatusCode: 200);
+      final dio = Dio()..interceptors.add(interceptor);
+      final service = LlmApiService(dio: dio);
+
+      await service.callLlm(
+        providerType: 'ollama',
+        baseUrl: baseUrl,
+        modelId: 'llama3',
+        messages: [const ChatMessage(role: 'user', content: 'hi')],
+      );
+      return interceptor;
+    }
+
+    test('strips /api/chat suffix', () async {
+      final interceptor =
+          await callWithBaseUrl('http://myhost:11434/api/chat');
+      expect(interceptor.paths.first, 'http://myhost:11434/api/chat');
+    });
+
+    test('strips /api/generate suffix', () async {
+      final interceptor =
+          await callWithBaseUrl('http://host:11434/api/generate');
+      expect(interceptor.paths.first, 'http://host:11434/api/chat');
+    });
+
+    test('strips /api suffix', () async {
+      final interceptor = await callWithBaseUrl('http://host:11434/api');
+      expect(interceptor.paths.first, 'http://host:11434/api/chat');
+    });
+
+    test('strips /v1/api/chat suffix', () async {
+      final interceptor =
+          await callWithBaseUrl('http://host:11434/v1/api/chat');
+      expect(interceptor.paths.first, 'http://host:11434/api/chat');
+    });
+
+    test('strips trailing slashes', () async {
+      final interceptor = await callWithBaseUrl('http://host:11434///');
+      expect(interceptor.paths.first, 'http://host:11434/api/chat');
+    });
+
+    test('falls back to localhost for empty string', () async {
+      final interceptor = await callWithBaseUrl('');
+      expect(
+        interceptor.paths.first,
+        'http://localhost:11434/api/chat',
+      );
+    });
+
+    test('keeps base URL without suffix unchanged', () async {
+      final interceptor = await callWithBaseUrl('http://host:11434');
+      expect(interceptor.paths.first, 'http://host:11434/api/chat');
+    });
+  });
+
+  group('Ollama missing model error patterns', () {
+    Future<void> expectModelError(
+      dynamic chatErrorPayload,
+      String expectedModel,
+    ) async {
+      final interceptor = _OllamaPathInterceptor(
+        chatStatusCode: 404,
+        chatErrorPayload: chatErrorPayload,
+      );
+      final dio = Dio()..interceptors.add(interceptor);
+      final service = LlmApiService(dio: dio);
+
+      await expectLater(
+        () => service.callLlm(
+          providerType: 'ollama',
+          baseUrl: 'http://fake:11434',
+          modelId: expectedModel,
+          messages: [const ChatMessage(role: 'user', content: 'hi')],
+        ),
+        throwsA(predicate((e) => e.toString().contains(expectedModel))),
+      );
+    }
+
+    test('detects model with double quotes', () async {
+      await expectModelError(
+        {'error': 'model "llama3:latest" not found'},
+        'llama3:latest',
+      );
+    });
+
+    test('detects model with single quotes', () async {
+      await expectModelError(
+        {'error': "model 'mistral' not found"},
+        'mistral',
+      );
+    });
+
+    test('detects model without quotes', () async {
+      await expectModelError(
+        {'error': 'model gemma2 not found'},
+        'gemma2',
+      );
+    });
+
+    test(
+      'falls back to generate when error has no model-not-found pattern',
+      () async {
+        final interceptor = _OllamaPathInterceptor(
+          chatStatusCode: 404,
+          chatErrorPayload: {'error': 'connection refused'},
+        );
+        final dio = Dio()..interceptors.add(interceptor);
+        final service = LlmApiService(dio: dio);
+
+        final response = await service.callLlm(
+          providerType: 'ollama',
+          baseUrl: 'http://fake:11434',
+          modelId: 'llama3',
+          messages: [const ChatMessage(role: 'user', content: 'hi')],
+        );
+
+        expect(response.content, 'generate ok');
+        expect(interceptor.paths.length, 2);
+        expect(interceptor.paths[1], contains('/api/generate'));
+      },
+    );
+  });
+
+  group('Ollama chat/generate fallback (extended)', () {
+    test('uses chat endpoint directly when it returns 200', () async {
+      final interceptor = _OllamaPathInterceptor(chatStatusCode: 200);
+      final dio = Dio()..interceptors.add(interceptor);
+      final service = LlmApiService(dio: dio);
+
+      final response = await service.callLlm(
+        providerType: 'ollama',
+        baseUrl: 'http://fake:11434',
+        modelId: 'llama3',
+        messages: [const ChatMessage(role: 'user', content: 'hi')],
+      );
+
+      expect(response.content, 'chat ok');
+      expect(interceptor.paths.length, 1);
+      expect(interceptor.paths.first, contains('/api/chat'));
+    });
+
+    test('does NOT fall back on 500 error (only 404 triggers fallback)',
+        () async {
+      // 500 errors trigger retry logic with exponential backoff in callLlm.
+      // To avoid timeout we verify paths after catching the error with a
+      // generous timeout. All captured paths must be /api/chat only.
+      final interceptor = _OllamaPathInterceptor(chatStatusCode: 500);
+      final dio = Dio()..interceptors.add(interceptor);
+      final service = LlmApiService(dio: dio);
+
+      try {
+        await service.callLlm(
+          providerType: 'ollama',
+          baseUrl: 'http://fake:11434',
+          modelId: 'llama3',
+          messages: [const ChatMessage(role: 'user', content: 'hi')],
+        );
+        fail('Expected an exception');
+      } catch (_) {
+        // No path should be /api/generate – 500 must NOT trigger fallback.
+        for (final path in interceptor.paths) {
+          expect(path, isNot(contains('/api/generate')),
+              reason: '500 should NOT trigger fallback to /api/generate');
+        }
+      }
+    }, timeout: const Timeout(Duration(minutes: 2)));
+  });
 }

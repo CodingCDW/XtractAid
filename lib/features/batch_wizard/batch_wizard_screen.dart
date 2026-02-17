@@ -11,6 +11,7 @@ import 'package:logging/logging.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/utils/batch_helpers.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/batch_config.dart';
 import '../../data/models/cost_estimate.dart';
@@ -644,10 +645,6 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
     return true;
   }
 
-  bool _isTerminalBatchStatus(String? status) {
-    return status == 'completed' || status == 'failed' || status == 'cancelled';
-  }
-
   Future<_BatchSaveMode?> _showBatchSaveModeDialog() async {
     final t = S.of(context)!;
     return showDialog<_BatchSaveMode>(
@@ -694,7 +691,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
     }
 
     var saveMode = _BatchSaveMode.updateExisting;
-    if (_isEditing && _isTerminalBatchStatus(_editingBatchStatus)) {
+    if (_isEditing && isTerminalBatchStatus(_editingBatchStatus)) {
       final selectedMode = await _showBatchSaveModeDialog();
       if (!mounted || selectedMode == null) {
         return;

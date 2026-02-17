@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/utils/provider_helpers.dart';
 import '../../data/database/app_database.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/encryption_provider.dart';
@@ -34,22 +35,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _strictLocalMode = false;
   int _checkpointInterval = 10;
   bool _isLoading = true;
-
-  bool _isLocalProviderType(String type) {
-    return type == 'ollama' || type == 'lmstudio';
-  }
-
-  String _providerDisplayName(String type) {
-    return switch (type) {
-      'openai' => 'OpenAI',
-      'anthropic' => 'Anthropic',
-      'google' => 'Google',
-      'openrouter' => 'OpenRouter',
-      'ollama' => 'Ollama',
-      'lmstudio' => 'LM Studio',
-      _ => type,
-    };
-  }
 
   @override
   void initState() {
@@ -452,7 +437,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               itemBuilder: (context, index) {
                                 final p = providers[index];
                                 final hasKey = p.encryptedApiKey != null;
-                                final providerType = _providerDisplayName(
+                                final providerType = providerDisplayName(
                                   p.type,
                                 );
                                 final keyStatus = hasKey
@@ -603,7 +588,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final initialBaseUrl = existing?.baseUrl ?? _providerDefaults[initialType]!;
 
     final nameController = TextEditingController(
-      text: existing?.name ?? _providerDisplayName(initialType),
+      text: existing?.name ?? providerDisplayName(initialType),
     );
     final baseUrlController = TextEditingController(text: initialBaseUrl);
     final apiKeyController = TextEditingController();
@@ -619,7 +604,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         final t2 = S.of(dialogContext)!;
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final isLocal = _isLocalProviderType(selectedType);
+            final isLocal = isLocalProviderType(selectedType);
             final helperText = isLocal
                 ? t2.settingsProviderApiKeyLocalOptional
                 : hasExistingKey
@@ -654,7 +639,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           .map(
                             (type) => DropdownMenuItem<String>(
                               value: type,
-                              child: Text(_providerDisplayName(type)),
+                              child: Text(providerDisplayName(type)),
                             ),
                           )
                           .toList(),
@@ -736,7 +721,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     final name = nameController.text.trim();
                     final baseUrl = baseUrlController.text.trim();
                     final apiKey = apiKeyController.text.trim();
-                    final isLocal = _isLocalProviderType(selectedType);
+                    final isLocal = isLocalProviderType(selectedType);
                     final isCreate = existing == null;
 
                     if (name.isEmpty) {

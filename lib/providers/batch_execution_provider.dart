@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 
@@ -129,6 +130,9 @@ class BatchExecutionNotifier extends StateNotifier<BatchExecutionState> {
   void reset() {
     state = BatchExecutionState.initial();
   }
+
+  @visibleForTesting
+  void handleWorkerEventForTest(WorkerEvent event) => _onWorkerEvent(event);
 
   void _onWorkerEvent(WorkerEvent event) {
     switch (event) {
