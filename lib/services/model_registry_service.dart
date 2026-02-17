@@ -60,6 +60,7 @@ class ModelRegistryService {
     }
 
     final attempts = <String>[];
+    var sawNon404Failure = false;
     for (final url in AppConstants.remoteRegistryUrls) {
       try {
         final response = await _dio.get(
@@ -77,14 +78,23 @@ class ModelRegistryService {
         final status = e.response?.statusCode;
         final statusLabel = status != null ? 'HTTP $status' : e.type.name;
         attempts.add('$url -> $statusLabel');
+        if (status != 404) {
+          sawNon404Failure = true;
+        }
       } catch (e) {
         attempts.add('$url -> $e');
+        sawNon404Failure = true;
       }
     }
 
     _remoteCache = null;
     _remoteCacheUpdated = DateTime.now();
-    _logRemoteFailure(attempts.join(' | '));
+    final signature = attempts.join(' | ');
+    if (sawNon404Failure) {
+      _logRemoteFailure(signature);
+    } else {
+      _log.info('Remote registry not available (optional): $signature');
+    }
     return null;
   }
 

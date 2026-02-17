@@ -17,6 +17,7 @@ class StartBatchCommand extends WorkerCommand {
     this.providerBaseUrls = const {},
     this.inputPricePerMillion = 0.0,
     this.outputPricePerMillion = 0.0,
+    this.allowRemoteProviders = true,
   });
 
   final BatchConfig config;
@@ -27,6 +28,7 @@ class StartBatchCommand extends WorkerCommand {
   final Map<String, String> providerBaseUrls;
   final double inputPricePerMillion;
   final double outputPricePerMillion;
+  final bool allowRemoteProviders;
 }
 
 class PauseBatchCommand extends WorkerCommand {}
@@ -85,6 +87,7 @@ abstract final class WorkerMessageCodec {
         'providerBaseUrls': command.providerBaseUrls,
         'inputPricePerMillion': command.inputPricePerMillion,
         'outputPricePerMillion': command.outputPricePerMillion,
+        'allowRemoteProviders': command.allowRemoteProviders,
       },
       PauseBatchCommand() => {'type': 'pause'},
       ResumeBatchCommand() => {'type': 'resume'},
@@ -129,6 +132,7 @@ abstract final class WorkerMessageCodec {
               (payload['inputPricePerMillion'] as num?)?.toDouble() ?? 0.0,
           outputPricePerMillion:
               (payload['outputPricePerMillion'] as num?)?.toDouble() ?? 0.0,
+          allowRemoteProviders: payload['allowRemoteProviders'] != false,
         );
       case 'pause':
         return PauseBatchCommand();

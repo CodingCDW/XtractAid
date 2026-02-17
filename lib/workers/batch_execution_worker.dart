@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/utils/provider_helpers.dart';
 import '../core/utils/log_masking.dart';
 import '../data/models/batch_stats.dart';
 import '../data/models/item.dart';
@@ -190,6 +191,13 @@ class _WorkerRuntime {
 
       final model = config.models.first;
       final providerType = model.providerId;
+      if (!command.allowRemoteProviders && !isLocalProviderType(providerType)) {
+        _emitError(
+          'Project policy blocks cloud providers. '
+          'Select a local provider (Ollama or LM Studio).',
+        );
+        return;
+      }
       final baseUrl =
           command.providerBaseUrls[providerType] ??
           _defaultBaseUrl(providerType);

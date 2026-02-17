@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xtractaid/data/models/batch_config.dart';
 import 'package:xtractaid/data/models/batch_stats.dart';
+import 'package:xtractaid/data/models/item.dart';
 import 'package:xtractaid/workers/worker_messages.dart';
 
 void main() {
@@ -18,9 +20,7 @@ void main() {
       });
 
       test('encode omits stats when null', () {
-        final event = ProgressEvent(
-          const BatchProgress(callCounter: 1),
-        );
+        final event = ProgressEvent(const BatchProgress(callCounter: 1));
         final json = WorkerMessageCodec.encodeEvent(event);
 
         expect(json['type'], 'progress');
@@ -31,8 +31,10 @@ void main() {
         final json = {
           'type': 'progress',
           'progress': const BatchProgress(callCounter: 3).toJson(),
-          'stats': const BatchStats(totalApiCalls: 6, completedApiCalls: 3)
-              .toJson(),
+          'stats': const BatchStats(
+            totalApiCalls: 6,
+            completedApiCalls: 3,
+          ).toJson(),
         };
         final event = WorkerMessageCodec.decodeEvent(json);
 
@@ -107,8 +109,7 @@ void main() {
         );
 
         final json = WorkerMessageCodec.encodeEvent(original);
-        final decoded =
-            WorkerMessageCodec.decodeEvent(json) as BatchErrorEvent;
+        final decoded = WorkerMessageCodec.decodeEvent(json) as BatchErrorEvent;
 
         expect(decoded.message, 'Something failed');
         expect(decoded.details, 'Stack trace here');
@@ -118,8 +119,7 @@ void main() {
         final original = BatchErrorEvent(message: 'Error occurred');
 
         final json = WorkerMessageCodec.encodeEvent(original);
-        final decoded =
-            WorkerMessageCodec.decodeEvent(json) as BatchErrorEvent;
+        final decoded = WorkerMessageCodec.decodeEvent(json) as BatchErrorEvent;
 
         expect(decoded.message, 'Error occurred');
         expect(decoded.details, isNull);
@@ -127,6 +127,30 @@ void main() {
     });
 
     group('Command encode/decode', () {
+      test('StartBatchCommand preserves allowRemoteProviders flag', () {
+        final command = StartBatchCommand(
+          config: const BatchConfig(
+            batchId: 'b1',
+            projectId: 'p1',
+            name: 'Batch',
+            input: BatchInput(type: 'excel', path: 'input.xlsx'),
+            promptFiles: ['p.txt'],
+            chunkSettings: ChunkSettings(chunkSize: 1, repetitions: 1),
+            models: [BatchModelConfig(modelId: 'gpt-4o', providerId: 'openai')],
+          ),
+          items: const [Item(id: '1', text: 'hello', source: 'test')],
+          prompts: const {'p.txt': 'Prompt {items}'},
+          projectPath: 'C:/project',
+          allowRemoteProviders: false,
+        );
+
+        final json = WorkerMessageCodec.encodeCommand(command);
+        final decoded = WorkerMessageCodec.decodeCommand(json);
+
+        expect(decoded, isA<StartBatchCommand>());
+        expect((decoded as StartBatchCommand).allowRemoteProviders, isFalse);
+      });
+
       test('PauseBatchCommand roundtrip', () {
         final json = WorkerMessageCodec.encodeCommand(PauseBatchCommand());
         final decoded = WorkerMessageCodec.decodeCommand(json);

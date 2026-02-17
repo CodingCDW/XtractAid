@@ -14,6 +14,7 @@ import '../../providers/database_provider.dart';
 import '../../providers/encryption_provider.dart';
 import '../../providers/model_registry_provider.dart';
 import '../../services/file_parser_service.dart';
+import '../../services/project_model_access_service.dart';
 import '../../services/prompt_service.dart';
 import '../../services/project_file_service.dart';
 import '../../services/report_generator_service.dart';
@@ -40,6 +41,7 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
   final _fileParserService = FileParserService();
   final _promptService = PromptService();
   final _projectFileService = ProjectFileService();
+  final _projectModelAccessService = ProjectModelAccessService();
   final _reportGenerator = ReportGeneratorService();
 
   bool _isPreparing = false;
@@ -290,6 +292,17 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
       final config = BatchConfig.fromJson(configMap);
       _activeConfig = config;
       _activeProjectPath = project.path;
+      final providerType = config.models.first.providerId;
+      final projectMode = await _projectModelAccessService
+          .getEffectiveProjectMode(db, widget.projectId);
+      final providerAllowed = _projectModelAccessService.isProviderAllowed(
+        providerType,
+        projectMode,
+      );
+      if (!providerAllowed) {
+        _showError(t.settingsStrictLocalModeDesc);
+        return;
+      }
 
       final items = await _loadItems(config);
       if (items.isEmpty) {
@@ -322,7 +335,6 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
       final enabledProviders = await db.providersDao.getEnabled();
       final providerBaseUrls = <String, String>{};
       dynamic selectedProvider;
-      final providerType = config.models.first.providerId;
       for (final provider in enabledProviders) {
         providerBaseUrls[provider.type] = provider.baseUrl;
         if (provider.type == providerType) {
@@ -354,6 +366,8 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
           providerBaseUrls: providerBaseUrls,
           inputPricePerMillion: inputPrice,
           outputPricePerMillion: outputPrice,
+          allowRemoteProviders:
+              projectMode == ProjectModelAccessMode.allowRemote,
         ),
       );
 
@@ -444,7 +458,6 @@ class _BatchExecutionScreenState extends ConsumerState<BatchExecutionScreen> {
     final db = ref.read(databaseProvider);
     await db.batchesDao.updateStatus(widget.batchId, status);
   }
-
 
   Color _statusColor(BatchExecutionStatus status, BuildContext context) {
     return switch (status) {

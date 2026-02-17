@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/utils/batch_helpers.dart';
+import '../../core/utils/provider_helpers.dart';
 import '../../data/database/app_database.dart';
 import '../../data/models/batch_config.dart';
 import '../../data/models/cost_estimate.dart';
@@ -20,6 +21,7 @@ import '../../data/models/model_info.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/model_registry_provider.dart';
 import '../../services/file_parser_service.dart';
+import '../../services/project_model_access_service.dart';
 import '../../services/project_file_service.dart';
 import '../../services/prompt_service.dart';
 import '../../services/token_estimation_service.dart';
@@ -46,6 +48,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
   final _fileParserService = FileParserService();
   final _promptService = PromptService();
   final _projectFileService = ProjectFileService();
+  final _projectModelAccessService = ProjectModelAccessService();
   final _tokenEstimationService = TokenEstimationService();
 
   int _step = 0;
@@ -78,6 +81,8 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
   bool _suppressPrivacyWarning = false;
   String? _editingBatchStatus;
   String? _editingBatchName;
+  ProjectModelAccessMode _projectModelAccessMode =
+      ProjectModelAccessMode.allowRemote;
 
   bool get _isEditing => widget.batchId != null;
   bool get _selectedModelIsInactive =>
@@ -113,6 +118,8 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
       final prompts = await _promptService.loadPrompts(
         _projectFileService.promptsDir(project.path),
       );
+      final projectMode = await _projectModelAccessService
+          .getEffectiveProjectMode(db, widget.projectId);
 
       BatchConfig? existingConfig;
       if (_isEditing) {
@@ -156,6 +163,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
           existingConfig?.models.firstOrNull?.modelId;
       final models = _filterVisibleModels(
         allModels,
+        allowRemoteProviders: projectMode == ProjectModelAccessMode.allowRemote,
         selectedModelId: selectedModelFromBatch,
       );
 
@@ -239,6 +247,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
         _chunkSize = chunkSize;
         _repetitions = repetitions;
         _privacyConfirmed = privacyConfirmed;
+        _projectModelAccessMode = projectMode;
       });
     } catch (e) {
       _log.warning('Failed to load initial data', e);
@@ -261,10 +270,18 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
 
   List<ModelInfo> _filterVisibleModels(
     List<ModelInfo> models, {
+    required bool allowRemoteProviders,
     String? selectedModelId,
   }) {
     return models
         .where((model) {
+          if (!allowRemoteProviders && !isLocalProviderType(model.provider)) {
+            final isSelected =
+                selectedModelId != null && model.id == selectedModelId;
+            if (!isSelected) {
+              return false;
+            }
+          }
           if (selectedModelId != null && model.id == selectedModelId) {
             return true;
           }
@@ -365,7 +382,21 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
     if (model == null) {
       return false;
     }
+    if (_projectModelAccessMode != ProjectModelAccessMode.allowRemote) {
+      return false;
+    }
     return !(_providerIsLocal[model.provider] ?? false);
+  }
+
+  bool get _selectedModelAllowedByProjectPolicy {
+    final model = _selectedModel;
+    if (model == null) {
+      return false;
+    }
+    return _projectModelAccessService.isProviderAllowed(
+      model.provider,
+      _projectModelAccessMode,
+    );
   }
 
   int get _totalChunks =>
@@ -630,6 +661,10 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
         _showError(S.of(context)!.batchWizardSelectModel);
         return false;
       }
+      if (!_selectedModelAllowedByProjectPolicy) {
+        _showError(S.of(context)!.settingsStrictLocalModeDesc);
+        return false;
+      }
     }
 
     if (step == 4 && _requiresPrivacyConfirmation && !_privacyConfirmed) {
@@ -677,6 +712,10 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
 
     if (project == null || model == null || inputPath == null) {
       _showError(t.batchWizardStartError);
+      return;
+    }
+    if (!_selectedModelAllowedByProjectPolicy) {
+      _showError(t.settingsStrictLocalModeDesc);
       return;
     }
 

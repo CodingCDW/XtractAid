@@ -12,6 +12,7 @@ import '../../data/database/app_database.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/project_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../services/project_model_access_service.dart';
 import '../../services/project_file_service.dart';
 import 'widgets/new_project_dialog.dart';
 import 'widgets/open_project_dialog.dart';
@@ -27,6 +28,7 @@ class ProjectManagerScreen extends ConsumerStatefulWidget {
 
 class _ProjectManagerScreenState extends ConsumerState<ProjectManagerScreen> {
   final _projectFileService = ProjectFileService();
+  final _projectModelAccessService = ProjectModelAccessService();
   bool _isBusy = false;
 
   Future<String?> _pickDirectory() {
@@ -254,6 +256,7 @@ class _ProjectManagerScreenState extends ConsumerState<ProjectManagerScreen> {
         await db.batchesDao.deleteBatch(batch.id);
       }
       await db.projectsDao.deleteProject(project.id);
+      await _projectModelAccessService.deleteProjectMode(db, project.id);
 
       if (deleteFolderFromDisk) {
         await _projectFileService.deleteProjectFolder(project.path);
@@ -280,9 +283,7 @@ class _ProjectManagerScreenState extends ConsumerState<ProjectManagerScreen> {
       }
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(t.projectsDeleteFailed('$e'))),
-        );
+        ..showSnackBar(SnackBar(content: Text(t.projectsDeleteFailed('$e'))));
     } finally {
       if (mounted) {
         setState(() {

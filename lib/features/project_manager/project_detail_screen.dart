@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../data/database/app_database.dart';
 import '../../providers/database_provider.dart';
+import '../../services/project_model_access_service.dart';
 
 class ProjectDetailScreen extends ConsumerWidget {
   const ProjectDetailScreen({super.key, required this.projectId});
@@ -44,7 +45,9 @@ class ProjectDetailScreen extends ConsumerWidget {
       }
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(t.projectDetailOpenResultsError)));
+        ..showSnackBar(
+          SnackBar(content: Text(t.projectDetailOpenResultsError)),
+        );
     }
   }
 
@@ -53,20 +56,14 @@ class ProjectDetailScreen extends ConsumerWidget {
       if (Platform.isWindows) {
         final windowsPath = path.replaceAll('/', r'\');
         try {
-          await Process.start(
-            'explorer.exe',
-            [windowsPath],
-            runInShell: true,
-          );
+          await Process.start('explorer.exe', [windowsPath], runInShell: true);
           return true;
         } on ProcessException {
           // Fallback for environments where explorer isn't on PATH.
           final windir = Platform.environment['WINDIR'] ?? r'C:\Windows';
-          await Process.start(
-            '$windir\\explorer.exe',
-            [windowsPath],
-            runInShell: true,
-          );
+          await Process.start('$windir\\explorer.exe', [
+            windowsPath,
+          ], runInShell: true);
           return true;
         }
       } else if (Platform.isMacOS) {
@@ -140,6 +137,8 @@ class ProjectDetailScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              _ProjectModelAccessCard(projectId: projectId),
               const SizedBox(height: 16),
               Expanded(
                 child: DefaultTabController(
@@ -281,6 +280,155 @@ class ProjectDetailScreen extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ProjectModelAccessCard extends ConsumerStatefulWidget {
+  const _ProjectModelAccessCard({required this.projectId});
+
+  final String projectId;
+
+  @override
+  ConsumerState<_ProjectModelAccessCard> createState() =>
+      _ProjectModelAccessCardState();
+}
+
+class _ProjectModelAccessCardState
+    extends ConsumerState<_ProjectModelAccessCard> {
+  final _projectModelAccessService = ProjectModelAccessService();
+
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _strictLocalModeEnabled = false;
+  ProjectModelAccessMode _storedMode = ProjectModelAccessMode.allowRemote;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMode();
+  }
+
+  Future<void> _loadMode() async {
+    final db = ref.read(databaseProvider);
+    final strictLocalMode = await _projectModelAccessService
+        .isStrictLocalModeEnabled(db);
+    final storedMode = await _projectModelAccessService.getStoredProjectMode(
+      db,
+      widget.projectId,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _strictLocalModeEnabled = strictLocalMode;
+      _storedMode = storedMode;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _setMode(ProjectModelAccessMode mode) async {
+    if (_isSaving) {
+      return;
+    }
+    setState(() {
+      _isSaving = true;
+    });
+    try {
+      final db = ref.read(databaseProvider);
+      await _projectModelAccessService.setProjectMode(
+        db,
+        widget.projectId,
+        mode,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _storedMode = mode;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Failed to save project mode.')),
+        );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = S.of(context)!;
+    if (_isLoading) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: LinearProgressIndicator(),
+        ),
+      );
+    }
+
+    final isGerman = Localizations.localeOf(context).languageCode == 'de';
+    final effectiveMode = _strictLocalModeEnabled
+        ? ProjectModelAccessMode.localOnly
+        : _storedMode;
+
+    final title = isGerman ? 'Projektmodus' : 'Project Mode';
+    final subtitle = _strictLocalModeEnabled
+        ? t.settingsStrictLocalModeDesc
+        : effectiveMode == ProjectModelAccessMode.localOnly
+        ? (isGerman
+              ? 'Nur lokale Provider fur dieses Projekt (Ollama, LM Studio).'
+              : 'Only local providers for this project (Ollama, LM Studio).')
+        : (isGerman
+              ? 'Lokale und Cloud-Provider sind fur dieses Projekt erlaubt.'
+              : 'Local and cloud providers are allowed for this project.');
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(subtitle),
+            const SizedBox(height: 10),
+            SegmentedButton<ProjectModelAccessMode>(
+              segments: [
+                ButtonSegment<ProjectModelAccessMode>(
+                  value: ProjectModelAccessMode.localOnly,
+                  icon: const Icon(Icons.computer_outlined),
+                  label: Text(t.labelLocal),
+                ),
+                ButtonSegment<ProjectModelAccessMode>(
+                  value: ProjectModelAccessMode.allowRemote,
+                  icon: const Icon(Icons.cloud_outlined),
+                  label: Text(t.labelCloud),
+                ),
+              ],
+              selected: {effectiveMode},
+              onSelectionChanged: _strictLocalModeEnabled || _isSaving
+                  ? null
+                  : (selection) {
+                      if (selection.isEmpty) {
+                        return;
+                      }
+                      _setMode(selection.first);
+                    },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
