@@ -18,6 +18,71 @@ class ProjectDetailScreen extends ConsumerWidget {
     return db.projectsDao.getById(projectId);
   }
 
+  Future<void> _openResultsFolder(
+    BuildContext context,
+    String projectPath,
+  ) async {
+    final t = S.of(context)!;
+    final resultsDirectory = Directory('$projectPath/results');
+
+    try {
+      if (!await resultsDirectory.exists()) {
+        await resultsDirectory.create(recursive: true);
+      }
+
+      final opened = await _openDirectoryInFileManager(resultsDirectory.path);
+      if (!opened && context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(t.projectDetailOpenResultsError)),
+          );
+      }
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(t.projectDetailOpenResultsError)));
+    }
+  }
+
+  Future<bool> _openDirectoryInFileManager(String path) async {
+    try {
+      if (Platform.isWindows) {
+        final windowsPath = path.replaceAll('/', r'\');
+        try {
+          await Process.start(
+            'explorer.exe',
+            [windowsPath],
+            runInShell: true,
+          );
+          return true;
+        } on ProcessException {
+          // Fallback for environments where explorer isn't on PATH.
+          final windir = Platform.environment['WINDIR'] ?? r'C:\Windows';
+          await Process.start(
+            '$windir\\explorer.exe',
+            [windowsPath],
+            runInShell: true,
+          );
+          return true;
+        }
+      } else if (Platform.isMacOS) {
+        await Process.start('open', [path], runInShell: true);
+        return true;
+      } else if (Platform.isLinux) {
+        await Process.start('xdg-open', [path], runInShell: true);
+        return true;
+      } else {
+        return false;
+      }
+    } on ProcessException {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = S.of(context)!;
@@ -55,11 +120,23 @@ class ProjectDetailScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  FilledButton.icon(
-                    onPressed: () =>
-                        context.go('/projects/$projectId/batch/new'),
-                    icon: const Icon(Icons.add),
-                    label: Text(t.projectDetailNewBatch),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            _openResultsFolder(context, project.path),
+                        icon: const Icon(Icons.folder_open_outlined),
+                        label: Text(t.projectDetailOpenResults),
+                      ),
+                      FilledButton.icon(
+                        onPressed: () =>
+                            context.go('/projects/$projectId/batch/new'),
+                        icon: const Icon(Icons.add),
+                        label: Text(t.projectDetailNewBatch),
+                      ),
+                    ],
                   ),
                 ],
               ),

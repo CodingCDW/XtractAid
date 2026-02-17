@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:excel/excel.dart' as xls;
 import 'package:path/path.dart' as p;
 
+import '../core/utils/batch_helpers.dart';
 import '../data/models/batch_config.dart';
 import '../data/models/batch_stats.dart';
 import '../data/models/log_entry.dart';
@@ -32,7 +33,17 @@ class ReportGeneratorService {
     double inputPricePerMillion = 0.0,
     double outputPricePerMillion = 0.0,
   }) async {
-    final outputDir = Directory(_outputDir(projectPath, batchId));
+    final runAt = stats.startedAt ?? DateTime.now();
+    final outputDir = _resolveAvailableOutputDir(
+      Directory(
+        _outputDir(
+          projectPath,
+          batchId: batchId,
+          batchName: config.name,
+          runAt: runAt,
+        ),
+      ),
+    );
     if (!outputDir.existsSync()) {
       outputDir.createSync(recursive: true);
     }
@@ -70,8 +81,33 @@ class ReportGeneratorService {
     }
   }
 
-  String _outputDir(String projectPath, String batchId) {
-    return p.join(projectPath, 'results', batchId);
+  String _outputDir(
+    String projectPath, {
+    required String batchId,
+    required String batchName,
+    required DateTime runAt,
+  }) {
+    final folderName = generateBatchRunFolderName(
+      batchName: batchName,
+      batchId: batchId,
+      runAt: runAt,
+    );
+    return p.join(projectPath, 'results', folderName);
+  }
+
+  Directory _resolveAvailableOutputDir(Directory desiredDir) {
+    if (!desiredDir.existsSync()) {
+      return desiredDir;
+    }
+
+    var suffix = 2;
+    while (true) {
+      final candidate = Directory('${desiredDir.path}_$suffix');
+      if (!candidate.existsSync()) {
+        return candidate;
+      }
+      suffix++;
+    }
   }
 
   Future<String> _generateExcel(
@@ -393,8 +429,9 @@ class ReportGeneratorService {
     if (value == null) return '';
     if (value is List) {
       if (value.isEmpty) return '';
-      final items =
-          value.map((v) => '<li>${_escapeHtml(v.toString())}</li>').join();
+      final items = value
+          .map((v) => '<li>${_escapeHtml(v.toString())}</li>')
+          .join();
       return '<ul>$items</ul>';
     }
     final str = _stringify(value);
@@ -403,8 +440,9 @@ class ReportGeneratorService {
       try {
         final list = jsonDecode(str);
         if (list is List) {
-          final items =
-              list.map((v) => '<li>${_escapeHtml(v.toString())}</li>').join();
+          final items = list
+              .map((v) => '<li>${_escapeHtml(v.toString())}</li>')
+              .join();
           return '<ul>$items</ul>';
         }
       } catch (_) {

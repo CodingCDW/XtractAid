@@ -144,6 +144,8 @@
   "projectOpenFolderHint": "Please choose a project folder.",
 
   "projectDetailNewBatch": "New Batch",
+  "projectDetailOpenResults": "Open Results",
+  "projectDetailOpenResultsError": "Could not open results folder.",
   "projectDetailBatches": "Batches",
   "projectDetailPrompts": "Prompts",
   "projectDetailInput": "Input",

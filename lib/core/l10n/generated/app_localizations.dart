@@ -781,6 +781,18 @@ abstract class S {
   /// **'Neuer Batch'**
   String get projectDetailNewBatch;
 
+  /// No description provided for @projectDetailOpenResults.
+  ///
+  /// In de, this message translates to:
+  /// **'Ergebnisse oeffnen'**
+  String get projectDetailOpenResults;
+
+  /// No description provided for @projectDetailOpenResultsError.
+  ///
+  /// In de, this message translates to:
+  /// **'Ergebnisordner konnte nicht geoeffnet werden.'**
+  String get projectDetailOpenResultsError;
+
   /// No description provided for @projectDetailBatches.
   ///
   /// In de, this message translates to:

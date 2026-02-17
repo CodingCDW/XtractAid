@@ -144,6 +144,8 @@
   "projectOpenFolderHint": "Bitte Projektordner waehlen.",
 
   "projectDetailNewBatch": "Neuer Batch",
+  "projectDetailOpenResults": "Ergebnisse oeffnen",
+  "projectDetailOpenResultsError": "Ergebnisordner konnte nicht geoeffnet werden.",
   "projectDetailBatches": "Batches",
   "projectDetailPrompts": "Prompts",
   "projectDetailInput": "Input",

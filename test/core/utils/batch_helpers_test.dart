@@ -105,4 +105,46 @@ void main() {
       expect(result[0].provider, 'lmstudio');
     });
   });
+
+  group('generateBatchName', () {
+    test('builds Batch_ModelName_ShortId format', () {
+      final result = generateBatchName(
+        modelName: 'gpt-5.2',
+        batchId: '12345678-90ab-cdef-1234-567890abcdef',
+      );
+
+      expect(result, 'Batch_gpt-5.2_12345678');
+    });
+
+    test('sanitizes model names for safe batch labels', () {
+      final result = generateBatchName(
+        modelName: 'gpt/4o mini:latest',
+        batchId: 'abcd-ef12',
+      );
+
+      expect(result, 'Batch_gpt_4o_mini_latest_abcdef12');
+    });
+  });
+
+  group('generateBatchRunFolderName', () {
+    test('appends date and time to batch name', () {
+      final result = generateBatchRunFolderName(
+        batchName: 'Batch_gpt-5.2_12345678',
+        batchId: 'ignored',
+        runAt: DateTime(2026, 2, 17, 7, 33, 12),
+      );
+
+      expect(result, 'Batch_gpt-5.2_12345678_2026-02-17_07-33-12');
+    });
+
+    test('falls back to batch id when name is empty', () {
+      final result = generateBatchRunFolderName(
+        batchName: '   ',
+        batchId: 'ab12-cd34-ef56',
+        runAt: DateTime(2026, 2, 17, 7, 33, 12),
+      );
+
+      expect(result, 'Batch_ab12cd34_2026-02-17_07-33-12');
+    });
+  });
 }

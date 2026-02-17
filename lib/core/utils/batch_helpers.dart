@@ -62,3 +62,61 @@ List<DiscoveredModel> extractDiscoveredModels(
 
   return const [];
 }
+
+/// Returns a stable batch name like `Batch_ModelName_1a2b3c4d`.
+String generateBatchName({required String modelName, required String batchId}) {
+  final modelSegment = _sanitizeSegment(modelName, fallback: 'Model');
+  final shortId = _shortId(batchId);
+  return 'Batch_${modelSegment}_$shortId';
+}
+
+/// Returns a run folder name like
+/// `Batch_ModelName_1a2b3c4d_2026-02-17_07-33-12`.
+String generateBatchRunFolderName({
+  required String batchName,
+  required String batchId,
+  required DateTime runAt,
+}) {
+  final baseName = _sanitizeSegment(
+    batchName,
+    fallback: 'Batch_${_shortId(batchId)}',
+  );
+  return '${baseName}_${_formatDate(runAt)}_${_formatTime(runAt)}';
+}
+
+String _sanitizeSegment(String value, {required String fallback}) {
+  var normalized = value.trim();
+  if (normalized.isEmpty) {
+    return fallback;
+  }
+
+  normalized = normalized
+      .replaceAll(RegExp(r'\s+'), '_')
+      .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+
+  return normalized.isEmpty ? fallback : normalized;
+}
+
+String _shortId(String value) {
+  final compact = value.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+  if (compact.isEmpty) {
+    return '00000000';
+  }
+  return compact.length <= 8 ? compact : compact.substring(0, 8);
+}
+
+String _formatDate(DateTime value) {
+  final year = value.year.toString().padLeft(4, '0');
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
+}
+
+String _formatTime(DateTime value) {
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  final second = value.second.toString().padLeft(2, '0');
+  return '$hour-$minute-$second';
+}

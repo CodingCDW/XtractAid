@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:xtractaid/data/models/batch_config.dart';
 import 'package:xtractaid/data/models/batch_stats.dart';
 import 'package:xtractaid/data/models/log_entry.dart';
@@ -26,15 +27,9 @@ void main() {
       'batchId': 'test-batch-001',
       'projectId': 'proj-1',
       'name': 'Test Batch',
-      'input': {
-        'type': 'excel',
-        'path': '/tmp/data.xlsx',
-      },
+      'input': {'type': 'excel', 'path': '/tmp/data.xlsx'},
       'promptFiles': ['prompt_a.txt', 'prompt_b.txt'],
-      'chunkSettings': {
-        'chunkSize': 1,
-        'repetitions': 2,
-      },
+      'chunkSettings': {'chunkSize': 1, 'repetitions': 2},
       'models': [
         {'modelId': 'gpt-5.2', 'providerId': 'openai'},
       ],
@@ -211,7 +206,10 @@ void main() {
 
       final html = await File(reports.htmlPath).readAsString();
       // The user-injected value must be escaped (not raw <script>)
-      expect(html, contains('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'));
+      expect(
+        html,
+        contains('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'),
+      );
       // The raw injected string must NOT appear unescaped in data
       expect(html, isNot(contains('<script>alert')));
     });
@@ -251,8 +249,76 @@ void main() {
   });
 
   group('Session log cost details', () {
+    test('stores reports under batch run folder with date and time', () async {
+      final config = BatchConfig.fromJson({
+        'batchId': 'batch-001',
+        'projectId': 'proj-1',
+        'name': 'Batch_gpt-5.2_ab12cd34',
+        'input': {'type': 'excel', 'path': '/tmp/data.xlsx'},
+        'promptFiles': ['prompt_a.txt'],
+        'chunkSettings': {'chunkSize': 1, 'repetitions': 1},
+        'models': [
+          {'modelId': 'gpt-5.2', 'providerId': 'openai'},
+        ],
+      });
+
+      final reports = await service.generateReports(
+        projectPath: tmpDir.path,
+        batchId: 'ignored-for-folder',
+        config: config,
+        stats: makeStats(),
+        results: <Map<String, dynamic>>[],
+        logs: <LogEntry>[],
+        promptContents: {},
+      );
+
+      final resultDir = p.basename(p.dirname(reports.markdownPath));
+      expect(resultDir, 'Batch_gpt-5.2_ab12cd34_2026-02-15_10-00-00');
+    });
+
+    test(
+      'creates unique folder when same run timestamp already exists',
+      () async {
+        final config = BatchConfig.fromJson({
+          'batchId': 'batch-001',
+          'projectId': 'proj-1',
+          'name': 'Batch_gpt-5.2_ab12cd34',
+          'input': {'type': 'excel', 'path': '/tmp/data.xlsx'},
+          'promptFiles': ['prompt_a.txt'],
+          'chunkSettings': {'chunkSize': 1, 'repetitions': 1},
+          'models': [
+            {'modelId': 'gpt-5.2', 'providerId': 'openai'},
+          ],
+        });
+
+        final first = await service.generateReports(
+          projectPath: tmpDir.path,
+          batchId: 'batch-001',
+          config: config,
+          stats: makeStats(),
+          results: <Map<String, dynamic>>[],
+          logs: <LogEntry>[],
+          promptContents: {},
+        );
+        final second = await service.generateReports(
+          projectPath: tmpDir.path,
+          batchId: 'batch-001',
+          config: config,
+          stats: makeStats(),
+          results: <Map<String, dynamic>>[],
+          logs: <LogEntry>[],
+          promptContents: {},
+        );
+
+        final firstDir = p.basename(p.dirname(first.markdownPath));
+        final secondDir = p.basename(p.dirname(second.markdownPath));
+        expect(firstDir, 'Batch_gpt-5.2_ab12cd34_2026-02-15_10-00-00');
+        expect(secondDir, 'Batch_gpt-5.2_ab12cd34_2026-02-15_10-00-00_2');
+      },
+    );
+
     test('includes pricing breakdown when pricing is provided', () async {
-      await service.generateReports(
+      final reports = await service.generateReports(
         projectPath: tmpDir.path,
         batchId: 'cost-test',
         config: makeConfig(),
@@ -264,9 +330,7 @@ void main() {
         outputPricePerMillion: 14.0,
       );
 
-      final md = await File(
-        '${tmpDir.path}/results/cost-test/session_log.md',
-      ).readAsString();
+      final md = await File(reports.markdownPath).readAsString();
       expect(md, contains('Input pricing: \$1.75 / 1M tokens'));
       expect(md, contains('Output pricing: \$14.00 / 1M tokens'));
       expect(md, contains('Input cost:'));
@@ -275,7 +339,7 @@ void main() {
     });
 
     test('omits pricing breakdown when pricing is zero', () async {
-      await service.generateReports(
+      final reports = await service.generateReports(
         projectPath: tmpDir.path,
         batchId: 'no-cost-test',
         config: makeConfig(),
@@ -285,9 +349,7 @@ void main() {
         promptContents: {},
       );
 
-      final md = await File(
-        '${tmpDir.path}/results/no-cost-test/session_log.md',
-      ).readAsString();
+      final md = await File(reports.markdownPath).readAsString();
       expect(md, contains('Total cost (USD)'));
       expect(md, isNot(contains('Input pricing:')));
     });

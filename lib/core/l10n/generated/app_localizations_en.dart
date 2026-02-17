@@ -364,6 +364,12 @@ class SEn extends S {
   String get projectDetailNewBatch => 'New Batch';
 
   @override
+  String get projectDetailOpenResults => 'Open Results';
+
+  @override
+  String get projectDetailOpenResultsError => 'Could not open results folder.';
+
+  @override
   String get projectDetailBatches => 'Batches';
 
   @override

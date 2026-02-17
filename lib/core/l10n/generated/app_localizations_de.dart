@@ -370,6 +370,13 @@ class SDe extends S {
   String get projectDetailNewBatch => 'Neuer Batch';
 
   @override
+  String get projectDetailOpenResults => 'Ergebnisse oeffnen';
+
+  @override
+  String get projectDetailOpenResultsError =>
+      'Ergebnisordner konnte nicht geoeffnet werden.';
+
+  @override
   String get projectDetailBatches => 'Batches';
 
   @override

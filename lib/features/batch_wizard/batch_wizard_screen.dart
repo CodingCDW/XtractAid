@@ -318,12 +318,7 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
         (index) =>
             Item(id: 'placeholder_${index + 1}', text: '', source: 'config'),
       );
-      return (
-        placeholders,
-        [
-          t.batchWizardItemsFallbackWarning,
-        ],
-      );
+      return (placeholders, [t.batchWizardItemsFallbackWarning]);
     }
   }
 
@@ -705,12 +700,12 @@ class _BatchWizardScreenState extends ConsumerState<BatchWizardScreen> {
 
     try {
       final db = ref.read(databaseProvider);
-      final now = DateTime.now();
-      final generatedName = t.batchWizardGeneratedName(
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-      );
       final saveAsNew = !_isEditing || saveMode == _BatchSaveMode.saveAsNew;
       final batchId = saveAsNew ? const Uuid().v4() : widget.batchId!;
+      final generatedName = generateBatchName(
+        modelName: model.displayName.isNotEmpty ? model.displayName : model.id,
+        batchId: batchId,
+      );
       final name = !saveAsNew
           ? (_editingBatchName ?? generatedName)
           : generatedName;
